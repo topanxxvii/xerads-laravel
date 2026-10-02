@@ -10,14 +10,12 @@ then copy them here unchanged, so both suites keep asserting the same contract.
 | `signature-v2-vectors.json` | `tests/Fixtures/sites/signature-v2-vectors.json` |
 | `article-upsert.json` | `tests/Fixtures/sites/article-upsert.json` |
 | `widget-embeds.json` | `tests/Fixtures/sites/widget-embeds.json` |
-| `site-settings.json` | none yet: written here from `App\Services\Sites\SiteSettingsSchema` |
+| `site-settings.json` | `tests/Fixtures/sites/site-settings.json` |
 
 - `signature-v2-vectors.json`: push and pull signature vectors for contract 2.
 - `article-upsert.json`: a complete `article.upsert` envelope.
 - `widget-embeds.json`: every embed format XerAds generates for one widget.
-- `site-settings.json`: the settings document a site pulls, exactly as
-  `SiteSettingsSchema::document()` serves `defaults()` for a site named
-  "Toko Rumah" at the test application's address. The backend has no copy of
-  it yet; once it has one, this file becomes a copy like the others.
+- `site-settings.json`: the settings document XerAds serves a new site named
+  "Toko Rumah" at `http://localhost` (defaults, version 1).
 
 `../v1/custom-payload.json` comes from the same directory (`v1-custom-payload.json`): the exact body, timestamp, secret and signature XerAds sends to a custom endpoint under the frozen contract 1.

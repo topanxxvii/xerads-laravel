@@ -59,7 +59,9 @@
             "rules": [
                 {
                     "user_agent": "*",
-                    "allow": ["/"],
+                    "allow": [
+                        "/"
+                    ],
                     "disallow": []
                 }
             ],
