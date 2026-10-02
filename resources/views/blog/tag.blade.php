@@ -5,6 +5,8 @@
 
 @section(config('xerads.content.turnkey.section', 'content'))
     <div class="xerads-tag">
+        <x-xerads::breadcrumbs />
+
         <p class="xerads-meta">{{ __('xerads::blog.tags') }}</p>
         <h1>{{ $tag->name }}</h1>
 

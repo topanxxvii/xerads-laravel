@@ -3,6 +3,9 @@
 namespace XerAds\Laravel;
 
 use Illuminate\Contracts\Container\Container;
+use XerAds\Laravel\Seo\Breadcrumbs\BreadcrumbTrail;
+use XerAds\Laravel\Seo\HeadManager;
+use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\Credentials;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Features;
@@ -33,6 +36,27 @@ final class XeradsManager
     public function features(): array
     {
         return $this->container->make(Features::class)->enabled();
+    }
+
+    /**
+     * The current page's head: `Xerads::head()->title('…')->description('…')`.
+     * One per request.
+     */
+    public function head(): HeadManager
+    {
+        return $this->container->make(HeadManager::class);
+    }
+
+    /** The current page's breadcrumbs: `Xerads::breadcrumbs()->push('Products', '/products')`. */
+    public function breadcrumbs(): BreadcrumbTrail
+    {
+        return $this->container->make(BreadcrumbTrail::class);
+    }
+
+    /** The SEO settings in force: XerAds' over the defaults, under the site's overrides. */
+    public function settings(): SettingsRepository
+    {
+        return $this->container->make(SettingsRepository::class);
     }
 
     /** The site key in force, or null while the site is not paired. */

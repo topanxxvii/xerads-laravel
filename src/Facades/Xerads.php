@@ -10,6 +10,9 @@ use XerAds\Laravel\XeradsManager;
  * @method static int contract()
  * @method static list<string> features()
  * @method static \XerAds\Laravel\Support\Credentials|null credentials()
+ * @method static \XerAds\Laravel\Seo\HeadManager head()
+ * @method static \XerAds\Laravel\Seo\Breadcrumbs\BreadcrumbTrail breadcrumbs()
+ * @method static \XerAds\Laravel\Seo\SettingsRepository settings()
  *
  * @see XeradsManager
  */

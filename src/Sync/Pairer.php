@@ -7,6 +7,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Routing\UrlGenerator;
 use Illuminate\Support\Carbon;
 use SensitiveParameter;
+use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\Credentials;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Features;
@@ -39,6 +40,7 @@ final class Pairer
         private readonly Repository $config,
         private readonly UrlGenerator $urls,
         private readonly Application $app,
+        private readonly SettingsRepository $settings,
     ) {}
 
     /**
@@ -149,5 +151,8 @@ final class Pairer
         if (is_string($reply['indexnow_key'] ?? null) && preg_match('/^[a-f0-9]{32}$/', $reply['indexnow_key']) === 1) {
             $this->state->put('indexnow_key', $reply['indexnow_key']);
         }
+
+        // Pages rendered unpaired, or for another site, until now.
+        $this->settings->forget();
     }
 }

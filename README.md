@@ -26,10 +26,13 @@ Built so far:
 - pairing and sync: `xerads:pair` connects the site, and its SEO settings and
   redirects are kept current (stored as data for now);
 - the turnkey blog: `/blog` with categories, tags and signed previews, its
-  images copied onto the site's own disk.
+  images copied onto the site's own disk;
+- on-page SEO: title, description, canonical, robots, Open Graph, `twitter:*`
+  and verification tags and one JSON-LD graph per page, from the settings edited
+  in XerAds, with breadcrumbs and a table of contents.
 
-The head tags, sitemap, robots.txt and redirects built from those settings
-arrive in later releases.
+The sitemap, robots.txt and redirects built from those settings arrive in
+later releases.
 
 ## Requirements
 
@@ -174,8 +177,8 @@ to show the blog inside yours, or publish the views to change the markup:
 php artisan vendor:publish --tag=xerads-views
 ```
 
-The `<head>` holds a `<title>` for now; the layout's `@stack('xerads-head')`
-is where the SEO release puts the rest.
+The layout prints the whole head with `@xeradsHead` (see On-page SEO), and
+offers `@stack('xerads-head')` for tags of your own.
 
 How articles behave:
 
@@ -201,6 +204,85 @@ without `route:cache`, and no article is given a slug such a route answers.
 
 `php artisan xerads:simulate` sends a sample article to the blog on a
 turnkey site; `--mode=mapped` sends it to your mapped model instead.
+
+## On-page SEO
+
+Every page can print its head from one place: the settings edited in the
+XerAds dashboard (titles, robots, organisation, verification, per-page
+overrides), the page's article or model, and what the page says while it is
+handled. In your layout's `<head>`:
+
+```blade
+@xeradsHead                              {{-- any page --}}
+<x-xerads::head :for="$post" />          {{-- a page about a model (a mapped post) --}}
+<x-xerads::head :for="$post" except="title" />   {{-- your layout prints its own <title> --}}
+```
+
+It prints, once each: `<title>`, the description, the canonical link, the
+robots tag, the Open Graph and `twitter:*` tags (`article:*` on articles), the
+verification tags (home page only) and one JSON-LD `@graph` (organisation,
+website, web page, breadcrumbs, primary image, article). `only` and `except`
+take groups: title, description, canonical, robots, verification, og,
+twitter, jsonld.
+
+The turnkey blog's layout uses `@xeradsHead` already. On a mapped site, the
+post page's stored SEO (title, description, canonical, robots and share
+overrides from XerAds) is used once the page is told which post it shows.
+Tell it in the controller, so everything printed before the layout's head
+(breadcrumbs, the table of contents) knows too:
+
+```php
+public function show(Post $post)
+{
+    Xerads::head()->for($post);
+
+    return view('posts.show', compact('post'));
+}
+```
+
+and print `@xeradsHead` in the layout. (`<x-xerads::head :for="$post" />` in
+the layout works as well, but the page's body renders before its layout: give
+`<x-xerads::breadcrumbs :for="$post" />` the post too.)
+
+During a request, in a controller:
+
+```php
+use XerAds\Laravel\Facades\Xerads;
+
+Xerads::head()->title('Products')->description('Everything we sell.');
+Xerads::head()->for($product);                     // a model with ProvidesSeo
+Xerads::head()->page('search', query: $q);         // kinds: article, home, category, tag, archive, search, not_found
+Xerads::head()->robots('noindex')->canonical('/products');
+Xerads::breadcrumbs()->push('Products', '/products')->push($product->name);
+Xerads::head()->toArray();                         // {title, meta, link, jsonld} for a headless front end
+```
+
+```blade
+<x-xerads::breadcrumbs />                {{-- the same trail the JSON-LD uses (:for="$post" if the head is told in the layout) --}}
+<x-xerads::toc :for="$post" />           {{-- the article's headings --}}
+```
+
+Who wins, lowest first: the package's defaults, the settings from XerAds,
+`xerads.seo.overrides` in your config, `pages[]` in the settings for the exact
+path, a route's own robots choice (`Route::get(…)->xeradsRobots('noindex')`),
+the page's model, then calls made during the request. A page without a
+description of its own gets the settings' default description. For robots,
+the model may only restrict: an article's `index: true` never lifts a noindex
+from the settings or the route. A path rule in the settings (`robots.paths`)
+covers its path and everything under it (`/account` covers
+`/account/settings`); `*` is a wildcard. Some noindex decisions are forced:
+outside production (`xerads.seo.noindex_non_production`), previews,
+`index_site: false` and the noindex groups in the settings (categories, tags,
+paginated pages, search). The same decision goes into an `X-Robots-Tag`
+header, for responses without a head too, whenever it restricts indexing.
+
+Addresses (canonical, `og:url`, the JSON-LD) are built from the settings'
+`site.url`, else `APP_URL`, never from the request's Host header. Only lists
+(`page('archive')`, category, tag, search, or `Xerads::head()->paginated()`)
+keep `?page=`, from page 2 on; elsewhere it is ignored. With Inertia
+installed, the head is shared as the `xerads` prop on every Inertia response;
+keep `@xeradsHead` in the root view for the first, crawlable load. Without a
+pairing, SEO runs on your config alone.
 
 ## Widgets
 

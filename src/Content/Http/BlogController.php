@@ -2,7 +2,6 @@
 
 namespace XerAds\Laravel\Content\Http;
 
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,6 +10,7 @@ use Illuminate\Http\Request;
 use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Content\Models\Category;
 use XerAds\Laravel\Content\Models\Tag;
+use XerAds\Laravel\Seo\HeadManager;
 use XerAds\Laravel\Seo\Redirects\Redirect;
 use XerAds\Laravel\Support\Tables;
 
@@ -25,14 +25,18 @@ use XerAds\Laravel\Support\Tables;
  */
 final class BlogController
 {
-    public function __construct(
-        private readonly Tables $tables,
-        private readonly Repository $config,
-    ) {}
+    /*
+     * No constructor dependencies: the head, the trail and the table checks
+     * are one per request, and a controller can outlive one under a
+     * long-running worker. Each is resolved where it is used.
+     */
 
     public function index(Request $request): View
     {
         $articles = $this->paginate(Article::query(), $request);
+
+        $this->head()->page('archive');
+        $this->head()->breadcrumbs()->push((string) __('xerads::blog.title'));
 
         return view('xerads::blog.index', [
             'articles' => $articles,
@@ -45,6 +49,11 @@ final class BlogController
         $category = Category::query()->where('slug', $slug)->first() ?? abort(404);
         $articles = $this->paginate(Article::query()->whereHas('categories', fn (Builder $query) => $query->whereKey($category->getKey())), $request, termPage: true);
 
+        $this->head()->for($category)->page('category', term: $category->name);
+        $this->head()->breadcrumbs()
+            ->push((string) __('xerads::blog.title'), route('xerads.blog.index'))
+            ->push($category->name);
+
         return view('xerads::blog.category', [
             'category' => $category,
             'articles' => $articles,
@@ -56,6 +65,11 @@ final class BlogController
     {
         $tag = Tag::query()->where('slug', $slug)->first() ?? abort(404);
         $articles = $this->paginate(Article::query()->whereHas('tags', fn (Builder $query) => $query->whereKey($tag->getKey())), $request, termPage: true);
+
+        $this->head()->for($tag)->page('tag', term: $tag->name);
+        $this->head()->breadcrumbs()
+            ->push((string) __('xerads::blog.title'), route('xerads.blog.index'))
+            ->push($tag->name);
 
         return view('xerads::blog.tag', [
             'tag' => $tag,
@@ -82,13 +96,21 @@ final class BlogController
      */
     public function articleData(Article $article, bool $preview): array
     {
-        $article->loadMissing(['categories', 'tags', 'primaryCategory']);
+        $article->loadMissing(['categories', 'tags', 'primaryCategory', 'seoMeta']);
+
+        $head = $this->head()->for($article)->page('article')->preview($preview);
+        $trail = $head->breadcrumbs()->push((string) __('xerads::blog.title', [], $article->language), route('xerads.blog.index'));
+
+        if ($article->primaryCategory !== null) {
+            $trail->push($article->primaryCategory->name, $article->primaryCategory->url());
+        }
+
+        $trail->push($article->displayTitle());
 
         return [
             'article' => $article,
             'locale' => $article->language ?? app()->getLocale(),
             'preview' => $preview,
-            'noindex' => $preview,
         ];
     }
 
@@ -103,7 +125,7 @@ final class BlogController
      */
     private function paginate(Builder $query, Request $request, bool $termPage = false): LengthAwarePaginator
     {
-        $perPage = max(1, (int) $this->config->get('xerads.content.turnkey.per_page', 12));
+        $perPage = max(1, (int) config('xerads.content.turnkey.per_page', 12));
 
         $articles = $query->published()
             ->with('primaryCategory')
@@ -118,10 +140,15 @@ final class BlogController
         return $articles;
     }
 
+    private function head(): HeadManager
+    {
+        return app(HeadManager::class);
+    }
+
     /** A 301 or 410 the redirect table holds for this address, else 404. */
     private function notAnArticle(Request $request): RedirectResponse
     {
-        $redirect = $this->tables->exists('redirects') ? Redirect::forPath($request->path()) : null;
+        $redirect = app(Tables::class)->exists('redirects') ? Redirect::forPath($request->path()) : null;
 
         if ($redirect === null) {
             abort(404);

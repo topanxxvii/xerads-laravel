@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Carbon;
+use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\ErrorScrubber;
 use XerAds\Laravel\Support\InvalidSiteKey;
@@ -54,6 +55,7 @@ final class Synchronizer
         private readonly ErrorScrubber $scrubber,
         private readonly CacheFactory $cache,
         private readonly Repository $config,
+        private readonly SettingsRepository $settings,
     ) {}
 
     /** Paired, migrated, not revoked: is there anything to sync with? */
@@ -130,8 +132,9 @@ final class Synchronizer
 
             $credentials = $this->credentials->current();
 
-            if ($credentials !== null) {
-                $this->state->adopt($credentials);
+            if ($credentials !== null && $this->state->adopt($credentials)) {
+                // Another site's settings were cached for the pages.
+                $this->settings->forget();
             }
 
             if ($heartbeat) {
@@ -208,6 +211,11 @@ final class Synchronizer
 
         if (($this->state->announcedVersion($document) ?? -1) < $version) {
             $this->state->put($document.'_version', $version);
+        }
+
+        if ($document === 'settings') {
+            // Pages render with the new settings from the next request on.
+            $this->settings->forget();
         }
 
         return 'updated';

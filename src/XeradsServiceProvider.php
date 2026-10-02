@@ -5,6 +5,7 @@ namespace XerAds\Laravel;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Foundation\CachesRoutes;
+use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -14,6 +15,9 @@ use XerAds\CmsBridge\Http\Controllers\ArticleWebhookController;
 use XerAds\CmsBridge\Http\Middleware\VerifyXerAdsSignature;
 use XerAds\CmsBridge\Receivers\EloquentArticleReceiver;
 use XerAds\Laravel\Compat\LegacyConfig;
+use XerAds\Laravel\Seo\Breadcrumbs\BreadcrumbTrail;
+use XerAds\Laravel\Seo\HeadManager;
+use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Diagnostics;
 use XerAds\Laravel\Support\Features;
@@ -124,6 +128,21 @@ final class XeradsServiceProvider extends ServiceProvider
         Blade::componentNamespace('XerAds\\Laravel\\View\\Components', 'xerads');
 
         Blade::directive('xeradsWidget', fn (string $expression): string => '<?php echo app(\\'.WidgetExpander::class.'::class)->render('.$expression.'); ?>');
+
+        /*
+         * `Route::get(…)->xeradsRobots('noindex')`: the route's robots choice,
+         * kept in the route's action rather than its defaults, which Laravel
+         * would hand the controller as an argument.
+         */
+        Route::macro('xeradsRobots', function (string|array $directives) {
+            /** @var Route $this */
+            return $this->setAction(array_merge($this->getAction(), [HeadManager::ROUTE_ROBOTS => $directives]));
+        });
+
+        // `@xeradsHead`, or `@xeradsHead($post)` for a page about a model.
+        Blade::directive('xeradsHead', fn (string $expression): string => '<?php echo app(\\'.HeadManager::class.'::class)'
+            .(trim($expression) !== '' ? '->for('.$expression.')' : '')
+            .'->toHtml(); ?>');
     }
 
     /**
@@ -136,6 +155,7 @@ final class XeradsServiceProvider extends ServiceProvider
 
         foreach ([
             'content' => Content\ContentServiceProvider::class,
+            'seo' => Seo\SeoServiceProvider::class,
             'widgets' => Widgets\WidgetsServiceProvider::class,
             'sync' => Sync\SyncServiceProvider::class,
         ] as $module => $provider) {
@@ -166,6 +186,11 @@ final class XeradsServiceProvider extends ServiceProvider
         $this->app->scoped(DeliveryLedger::class);
         $this->app->scoped(V2Verifier::class);
         $this->app->bind(Diagnostics::class);
+
+        // A page's head and breadcrumbs, and the settings they read.
+        $this->app->scoped(SettingsRepository::class);
+        $this->app->scoped(HeadManager::class);
+        $this->app->scoped(BreadcrumbTrail::class);
 
         $this->app->scoped(CredentialsResolver::class, function (Application $app): CredentialsResolver {
             $class = $app->make('config')->get('xerads.credentials.resolver');

@@ -16,14 +16,12 @@ use XerAds\Laravel\Content\Models\Article;
  */
 final class PreviewController
 {
-    public function __construct(private readonly BlogController $blog) {}
-
     public function __invoke(string $article): Response
     {
         $record = Article::query()->where('xerads_id', $article)->first() ?? abort(404);
 
         return response()
-            ->view('xerads::blog.show', $this->blog->articleData($record, preview: true))
+            ->view('xerads::blog.show', app(BlogController::class)->articleData($record, preview: true))
             ->header('X-Robots-Tag', 'noindex, nofollow')
             ->header('Cache-Control', 'private, no-store');
     }

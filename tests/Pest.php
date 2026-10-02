@@ -3,16 +3,20 @@
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Psr\Http\Message\RequestInterface;
 use XerAds\Laravel\Content\Contracts\PipelineStep;
 use XerAds\Laravel\Content\Pipeline\ContentDocument;
+use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\Credentials;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Signature\V2Signer;
 use XerAds\Laravel\Sync\Client\PairingClientFactory;
+use XerAds\Laravel\Sync\RemoteState;
 use XerAds\Laravel\Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -274,4 +278,90 @@ function storeTestKey(): void
 {
     app(CredentialsResolver::class)->store(Credentials::parse(testSiteKey()));
     app()->forgetScopedInstances();
+}
+
+/** The settings document XerAds serves by default (contract fixture). */
+function siteSettingsFixture(): array
+{
+    return json_decode((string) file_get_contents(__DIR__.'/Fixtures/contract/v2/site-settings.json'), true, flags: JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Hold a settings document from XerAds, as the Synchronizer stores one, for
+ * the test site (whose key this stores too).
+ *
+ * @param  array<string, mixed>  $settings  merged over XerAds' default
+ *                                          document: objects key by key,
+ *                                          lists replaced whole
+ */
+function holdSettings(array $settings = []): void
+{
+    storeTestKey();
+
+    app(RemoteState::class)->put('settings', [
+        'site_id' => TEST_SITE_ID,
+        'version' => 1,
+        'etag' => '"s1"',
+        'fetched_at' => '2026-10-02T08:00:00+00:00',
+        'data' => SettingsRepository::merge(siteSettingsFixture(), $settings),
+    ]);
+
+    app(SettingsRepository::class)->forget();
+    app()->forgetScopedInstances();
+}
+
+/**
+ * A page of the site's own at `$uri` whose layout prints `@xeradsHead`;
+ * `$prepare` runs in the request first, as a controller would.
+ */
+function headPage(TestCase $test, string $uri, ?Closure $prepare = null, string $head = '@xeradsHead', array $headers = []): TestResponse
+{
+    // Routes are matched on the decoded path.
+    $path = rawurldecode((string) parse_url($uri, PHP_URL_PATH));
+
+    if (! app()->bound('test.head-pages')) {
+        app()->instance('test.head-pages', new ArrayObject);
+    }
+
+    $pages = app('test.head-pages');
+    $registered = isset($pages[$path]);
+    $pages[$path] = ['prepare' => $prepare, 'head' => $head];
+
+    if (! $registered) {
+        Route::middleware('web')->get($path, function () use ($path) {
+            $page = app('test.head-pages')[$path];
+
+            if ($page['prepare'] !== null) {
+                ($page['prepare'])();
+            }
+
+            return Blade::render('<!DOCTYPE html><html><head>'.$page['head'].'</head><body><main>Page</main></body></html>');
+        });
+    }
+
+    return $test->get($uri, $headers);
+}
+
+/** The `<head>` of a response, for counting and comparing tags. */
+function headOf(TestResponse $response): string
+{
+    preg_match('#<head>(.*?)</head>#s', (string) $response->getContent(), $match);
+
+    return trim($match[1] ?? '');
+}
+
+/** The `content` of each meta tag with this name or property. */
+function metaContent(string $html, string $key): array
+{
+    preg_match_all('#<meta (?:name|property)="'.preg_quote($key, '#').'" content="([^"]*)">#', $html, $matches);
+
+    return $matches[1];
+}
+
+/** The page's JSON-LD, decoded. */
+function jsonLd(string $html): array
+{
+    preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $match);
+
+    return json_decode($match[1] ?? 'null', true, flags: JSON_THROW_ON_ERROR) ?? [];
 }

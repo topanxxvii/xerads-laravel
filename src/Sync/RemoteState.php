@@ -97,12 +97,13 @@ final class RemoteState
      * Start afresh when the key in force is another site's than the one this
      * state was kept for. Called at the start of every sync.
      */
-    public function adopt(Credentials $credentials): void
+    /** @return bool whether the state was another site's, and was started afresh */
+    public function adopt(Credentials $credentials): bool
     {
         $recorded = $this->get('site')['site_id'] ?? null;
 
         if ($recorded === $credentials->siteId) {
-            return;
+            return false;
         }
 
         // With no site recorded (a key set in .env, never paired here), what
@@ -120,6 +121,8 @@ final class RemoteState
             'delivery_mode' => null,
             'paired_at' => null,
         ]);
+
+        return true;
     }
 
     /** Record that XerAds removed this site, and which key it removed. */

@@ -71,6 +71,9 @@ final class InstallCommand extends Command
     private function printMappedSnippets(): void
     {
         $this->newLine();
+        $this->info('In the <head> of your post page\'s layout (title, description, canonical, Open Graph, JSON-LD):');
+        $this->line('  <x-xerads::head :for="$post" />          (@xeradsHead on other pages)');
+        $this->newLine();
         $this->info('In your layout, just before </body>:');
         $this->line('  <x-xerads::scripts />');
         $this->line('  (With Inertia or Livewire navigation: <x-xerads::scripts spa />)');

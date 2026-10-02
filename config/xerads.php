@@ -291,21 +291,30 @@ return [
 
     /*
      * Head tags. `remote` uses the settings edited in the XerAds dashboard;
-     * `overrides` wins over them, in the same shape, for values this site
-     * wants pinned in code. Non-production environments are noindexed so a
-     * staging copy never competes with the live site.
+     * `overrides` wins over them, in the same shape (for example
+     * `['site' => ['name' => 'Toko'], 'titles' => ['separator' => '|']]`),
+     * for values this site wants pinned in code. Non-production environments
+     * are noindexed so a staging copy never competes with the live site.
+     *
+     * `search_url` is the site's own search page with `{search_term_string}`
+     * where the query goes (https://shop.test/search?q={search_term_string});
+     * with it, the structured data tells search engines the site has search.
      */
     'seo' => [
         'remote' => true,
         'overrides' => [],
         'noindex_non_production' => true,
         'canonical_query_allowlist' => ['page'],
+        'search_url' => null,
         'inertia' => [
             'share' => true,
         ],
     ],
 
-    /** Extra structured-data pieces (class names) added to every page's graph. */
+    /*
+     * Extra structured-data pieces added to every page's graph: invokable
+     * class names, called with the Graph and the resolved Head.
+     */
     'schema' => [
         'pieces' => [],
     ],
@@ -449,8 +458,9 @@ return [
     ],
 
     /*
-     * Redirects, the 404 monitor and robots headers run as global middleware.
-     * Off turns all three off, for a site that wires them into its own stack.
+     * Redirects, the 404 monitor and the X-Robots-Tag header run as global
+     * middleware. Off turns them all off, for a site that wires them into its
+     * own stack.
      */
     'middleware' => [
         'global' => true,

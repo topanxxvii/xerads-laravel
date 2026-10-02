@@ -70,7 +70,7 @@ it('publishes an article at /blog/{slug} with one H1, the headline', function ()
 
     expect(substr_count(strtolower($html), '<h1'))->toBe(1)
         ->and($html)->toContain('<h1>Panduan KPR 2026: Syarat dan Bunga</h1>')
-        ->and($html)->toContain('<title>Panduan KPR 2026</title>')
+        ->and($html)->toContain('<title>Panduan KPR 2026: Syarat, Bunga, Simulasi - Laravel</title>')
         ->and($html)->toContain('<img src="https://cdn.xerads.test/articles/panduan-kpr-2026-1.png"')
         ->and($html)->toContain('Daftar Isi')
         ->and($html)->toContain('<a href="#apa-itu-kpr">Apa itu KPR</a>')
@@ -227,7 +227,7 @@ it('lists published articles, newest first, a page at a time', function () {
     $second = (string) $this->get('/blog?page=2')->assertOk()->getContent();
 
     expect($second)->toContain('Artikel 1')
-        ->and($second)->toContain('<title>Blog, page 2</title>')
+        ->and($second)->toContain('<title>Blog - Laravel - Page 2</title>')
         // The first page has one address, without ?page=1.
         ->and($second)->toContain('href="http://localhost/blog" rel="prev"');
 

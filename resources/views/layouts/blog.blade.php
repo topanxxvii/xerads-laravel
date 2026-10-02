@@ -1,19 +1,18 @@
 {{--
     The turnkey blog's page: a complete HTML document with a few styles a site
     can override (every class starts with "xerads-"), or replace with its own
-    layout (xerads.content.turnkey.layout). Blog pages fill `title` and the
-    section named by xerads.content.turnkey.section.
+    layout (xerads.content.turnkey.layout). Blog pages fill the section named
+    by xerads.content.turnkey.section (and `title`, for a layout of the site's
+    own that prints its own <title>); this one prints the whole head with
+    @xeradsHead.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', $locale ?? app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', __('xerads::blog.title'))</title>
-    @if (! empty($noindex))
-        <meta name="robots" content="noindex, nofollow">
-    @endif
-    {{-- The description, canonical, Open Graph and structured data tags arrive here with the SEO release. --}}
+    {{-- Title, description, canonical, robots, Open Graph, twitter:* and JSON-LD, each once. --}}
+    @xeradsHead
     @stack('xerads-head')
     <style>
         .xerads-blog { margin: 0; font: 1.0625rem/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1f2328; background: #fff; }
@@ -33,6 +32,8 @@
         .xerads-toc-level-3 { margin-left: 1rem; }
         .xerads-notice { padding: .75rem 1rem; background: #fff8c5; border: 1px solid #d4a72c; }
         .xerads-pagination { display: flex; gap: 1.25rem; justify-content: space-between; }
+        .xerads-breadcrumbs ol { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; padding: 0; margin: 0 0 1rem; font-size: .9rem; opacity: .8; }
+        .xerads-breadcrumbs li + li::before { content: "/"; margin-right: .4rem; }
     </style>
     @stack('xerads-styles')
 </head>

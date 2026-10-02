@@ -13,6 +13,8 @@
             <p class="xerads-notice" role="status">{{ __('xerads::blog.preview_notice', [], $locale) }}</p>
         @endif
 
+        <x-xerads::breadcrumbs />
+
         <header>
             <h1>{{ $article->displayTitle() }}</h1>
 
@@ -33,7 +35,7 @@
             </figure>
         @endif
 
-        @include('xerads::blog.partials.toc', ['article' => $article, 'locale' => $locale])
+        <x-xerads::toc :for="$article" />
 
         <div class="xerads-body">
             <x-xerads::content :for="$article" />

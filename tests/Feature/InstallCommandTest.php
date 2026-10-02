@@ -25,6 +25,7 @@ it('walks through the setup and prints what to add', function () {
         ->expectsOutputToContain('public/robots.txt exists')
         ->expectsOutputToContain('XERADS_CONTENT_MODE=mapped')
         ->expectsOutputToContain('XERADS_CONTENT_MODEL=App\\Models\\Post')
+        ->expectsOutputToContain('<x-xerads::head :for="$post" />')
         ->expectsOutputToContain('<x-xerads::scripts />')
         ->expectsOutputToContain('<x-xerads::content :html="$post->content" :for="$post" />')
         ->assertSuccessful();

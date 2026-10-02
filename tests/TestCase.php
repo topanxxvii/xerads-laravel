@@ -50,6 +50,26 @@ abstract class TestCase extends Orchestra
     }
 
     /**
+     * Each request starts with fresh per-request services, as it does on a
+     * real server (a new process, or Octane flushing scoped instances): one
+     * test's second request must not see the first one's head or trail.
+     *
+     * @param  string  $method
+     * @param  string  $uri
+     * @param  array<mixed>  $parameters
+     * @param  array<mixed>  $cookies
+     * @param  array<mixed>  $files
+     * @param  array<mixed>  $server
+     * @param  string|null  $content
+     */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $this->app?->forgetScopedInstances();
+
+        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+    }
+
+    /**
      * Nothing in the suite may reach the network; a test that needs a
      * response fakes it.
      */
@@ -73,7 +93,7 @@ abstract class TestCase extends Orchestra
      * @param  array<string, mixed>  $config
      * @param  list<class-string>  $providers  booted after the package's, as a site's own are
      */
-    protected function bootTurnkey(array $config = [], array $providers = []): void
+    public function bootTurnkey(array $config = [], array $providers = []): void
     {
         self::$bootConfig = ['xerads.content.mode' => 'turnkey'] + $config;
         self::$bootProviders = $providers;

@@ -1,0 +1,104 @@
+{
+    "schema": "xerads.site_settings",
+    "v": 1,
+    "version": 1,
+    "site": {
+        "name": "Toko Rumah",
+        "tagline": "",
+        "url": "http://localhost",
+        "default_language": "id",
+        "logo": null
+    },
+    "titles": {
+        "separator": "-",
+        "article": "{title} {sep} {site}",
+        "home": "{site} {sep} {tagline}",
+        "category": "{term} {sep} {site}",
+        "tag": "{term} {sep} {site}",
+        "archive": "Blog {sep} {site}",
+        "search": "{query} {sep} {site}",
+        "not_found": "{site}"
+    },
+    "meta": {
+        "default_description": "",
+        "default_og_image": null,
+        "twitter_site": null
+    },
+    "organization": {
+        "type": "Organization",
+        "name": "Toko Rumah",
+        "legal_name": null,
+        "logo": null,
+        "same_as": []
+    },
+    "website": {
+        "alternate_name": null
+    },
+    "verification": {
+        "google": null,
+        "bing": null,
+        "yandex": null,
+        "baidu": null,
+        "pinterest": null
+    },
+    "robots": {
+        "index_site": true,
+        "default": {
+            "max_snippet": -1,
+            "max_image_preview": "large",
+            "max_video_preview": -1
+        },
+        "noindex": {
+            "categories": false,
+            "tags": true,
+            "paginated": false,
+            "search": true
+        },
+        "paths": [],
+        "txt": {
+            "rules": [
+                {
+                    "user_agent": "*",
+                    "allow": ["/"],
+                    "disallow": []
+                }
+            ],
+            "extra": ""
+        }
+    },
+    "pages": [],
+    "sitemap": {
+        "enabled": true,
+        "max_urls": 5000,
+        "include": {
+            "articles": true,
+            "categories": true,
+            "tags": false,
+            "images": true
+        },
+        "exclude_paths": []
+    },
+    "breadcrumbs": {
+        "enabled": true,
+        "home_label": null
+    },
+    "indexnow": {
+        "enabled": true,
+        "key": "abababababababababababababababab"
+    },
+    "llms_txt": {
+        "enabled": false,
+        "summary": ""
+    },
+    "monitor_404": {
+        "enabled": true,
+        "report": true
+    },
+    "articles": {
+        "schema_type": "BlogPosting",
+        "default_author": null
+    },
+    "widgets": {
+        "loader_url": "https://widgets.xerads.id/v1/loader.js"
+    }
+}
