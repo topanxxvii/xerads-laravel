@@ -1,12 +1,18 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Psr\Http\Message\RequestInterface;
 use XerAds\Laravel\Content\Contracts\PipelineStep;
 use XerAds\Laravel\Content\Pipeline\ContentDocument;
+use XerAds\Laravel\Support\Credentials;
+use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Signature\V2Signer;
+use XerAds\Laravel\Sync\Client\PairingClientFactory;
 use XerAds\Laravel\Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -140,4 +146,132 @@ function scratchDirectory(string $name): string
     @mkdir($path, 0777, true);
 
     return $path;
+}
+
+const API = 'https://api.xerads.id/api/site/v1';
+
+/** XerAds' reply to a successful pairing, as SitePairingService builds it. */
+function pairReply(array $overrides = []): array
+{
+    return array_merge([
+        'site_id' => TEST_SITE_ID,
+        'key_id' => TEST_KEY_ID,
+        'secret' => TEST_SECRET,
+        'site_key' => testSiteKey(),
+        'api_url' => API,
+        'delivery_mode' => 'push',
+        'settings_version' => 3,
+        'redirects_version' => 1,
+        'indexnow_key' => str_repeat('ab', 16),
+        'server_time' => '2026-10-02T08:00:00Z',
+    ], $overrides);
+}
+
+/** A settings document in the shape XerAds serves (version 3). */
+function settingsDocument(int $version = 3): array
+{
+    return [
+        'schema' => 'xerads.site_settings',
+        'v' => 1,
+        'version' => $version,
+        'site' => ['name' => 'Toko', 'tagline' => '', 'url' => 'https://shop.test', 'default_language' => 'id', 'logo' => null],
+        'titles' => ['separator' => '-', 'article' => '{title} {sep} {site}'],
+        'widgets' => ['loader_url' => 'https://widgets.xerads.id/v1/loader.js'],
+    ];
+}
+
+function redirectsDocument(int $version = 1): array
+{
+    return ['version' => $version, 'data' => [
+        ['id' => 7, 'match' => 'exact', 'source' => '/lama', 'target' => '/baru', 'status' => 301, 'preserve_query' => true, 'case_insensitive' => false],
+    ]];
+}
+
+function heartbeatReply(array $overrides = []): array
+{
+    return array_merge([
+        'server_time' => '2026-10-02T08:00:00Z',
+        'status' => 'connected',
+        'delivery_mode' => 'push',
+        'settings_version' => 3,
+        'redirects_version' => 1,
+        'latest_plugin_version' => '1.0.0',
+        'min_plugin_version' => '1.0.0',
+        'entitlements' => ['articles' => true, 'widgets' => true],
+        'actions' => ['pull_settings', 'pull_redirects'],
+    ], $overrides);
+}
+
+/**
+ * Fake XerAds' site API. Each endpoint answers as the backend does unless
+ * replaced: pass a response, or a closure returning one, per path. Calling it
+ * again sets every answer anew (a second Http::fake() would not: the first
+ * stub registered keeps answering).
+ *
+ * @param  array<string, mixed>  $responses  keyed by path: pair, heartbeat, settings, redirects, not-found
+ */
+function fakeXerads(array $responses = []): void
+{
+    $defaults = [
+        'pair' => fn () => Http::response(pairReply(), 201),
+        'heartbeat' => fn () => Http::response(heartbeatReply()),
+        'settings' => fn () => Http::response(settingsDocument(), 200, ['ETag' => '"s3"']),
+        'redirects' => fn () => Http::response(redirectsDocument(), 200, ['ETag' => '"r1"']),
+    ];
+
+    $registered = app()->bound('xerads.test.api');
+    $answers = $registered ? app('xerads.test.api') : new ArrayObject;
+
+    // Every call starts from the defaults: earlier replacements do not linger.
+    $answers->exchangeArray(array_merge($defaults, $responses));
+
+    if ($registered) {
+        return;
+    }
+
+    app()->instance('xerads.test.api', $answers);
+
+    $answer = function (Request $request) use ($answers) {
+        $path = substr((string) parse_url($request->url(), PHP_URL_PATH), strlen('/api/site/v1/'));
+        $answer = $answers[$path] ?? Http::response(['error' => 'NOT_FOUND', 'message' => 'No such endpoint.'], 404);
+
+        return $answer instanceof Closure ? $answer($request) : $answer;
+    };
+
+    Http::fake([API.'/*' => $answer]);
+
+    // Pairing goes through a Guzzle client of its own (PairingClientFactory),
+    // which Http::fake() does not reach: the same answers, through a handler.
+    $pairings = new ArrayObject;
+    app()->instance('xerads.test.pairings', $pairings);
+
+    app()->instance(PairingClientFactory::class, new PairingClientFactory(function (RequestInterface $psrRequest) use ($answer, $pairings) {
+        $request = new Request($psrRequest);
+        $pairings[] = $request;
+
+        return $answer($request);
+    }));
+}
+
+/**
+ * The pairing requests the fake API has seen so far in this test.
+ *
+ * @return list<Request>
+ */
+function pairingRequests(): array
+{
+    return app()->bound('xerads.test.pairings') ? array_values(app('xerads.test.pairings')->getArrayCopy()) : [];
+}
+
+/** How many requests the fake API has seen so far in this test, pairing included. */
+function apiRequests(): int
+{
+    return Http::recorded()->count() + count(pairingRequests());
+}
+
+/** Store the test site's key the way pairing does. */
+function storeTestKey(): void
+{
+    app(CredentialsResolver::class)->store(Credentials::parse(testSiteKey()));
+    app()->forgetScopedInstances();
 }

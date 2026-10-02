@@ -9,8 +9,11 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Psr\Http\Message\RequestInterface;
+use RuntimeException;
 use Workbench\App\Models\Post;
 use XerAds\Laravel\Facades\Xerads;
+use XerAds\Laravel\Sync\Client\PairingClientFactory;
 use XerAds\Laravel\XeradsServiceProvider;
 
 /**
@@ -43,6 +46,13 @@ abstract class TestCase extends Orchestra
         // Nothing in the suite may reach the network; a test that needs a
         // response fakes it.
         Http::preventStrayRequests();
+
+        // Pairing is sent with a Guzzle client of its own, which
+        // Http::fake() does not reach: refused here too, answered by
+        // fakeXerads().
+        $this->app->instance(PairingClientFactory::class, new PairingClientFactory(function (RequestInterface $request): never {
+            throw new RuntimeException('A pairing request to '.$request->getUri().' was not faked. Call fakeXerads() first.');
+        }));
     }
 
     protected function tearDown(): void

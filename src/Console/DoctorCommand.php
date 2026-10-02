@@ -7,7 +7,7 @@ use Illuminate\Contracts\Config\Repository;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Diagnostics;
 use XerAds\Laravel\Support\InvalidSiteKey;
-use XerAds\Laravel\Support\StateStore;
+use XerAds\Laravel\Sync\RemoteState;
 
 /**
  * `php artisan xerads:doctor`: everything that can stop articles or widgets
@@ -25,7 +25,7 @@ final class DoctorCommand extends Command
     /** @var list<array{check: string, status: string, message: string}> */
     private array $checks = [];
 
-    public function handle(Diagnostics $diagnostics, CredentialsResolver $credentials, StateStore $state, Repository $config): int
+    public function handle(Diagnostics $diagnostics, CredentialsResolver $credentials, RemoteState $state, Repository $config): int
     {
         $this->checks = [];
 
@@ -59,7 +59,7 @@ final class DoctorCommand extends Command
         return $this->report();
     }
 
-    private function checkCredentials(CredentialsResolver $credentials, StateStore $state): void
+    private function checkCredentials(CredentialsResolver $credentials, RemoteState $state): void
     {
         try {
             $current = $credentials->current();
@@ -69,9 +69,7 @@ final class DoctorCommand extends Command
             return;
         }
 
-        $status = $state->available() ? $state->get('site_status') : null;
-
-        if (is_array($status) && ($status['status'] ?? null) === 'revoked') {
+        if ($state->available() && $state->isRevoked()) {
             $this->add('credentials', 'fail', 'XerAds disconnected this site. Pair it again from the XerAds dashboard.');
 
             return;

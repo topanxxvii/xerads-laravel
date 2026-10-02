@@ -3,10 +3,10 @@
 namespace XerAds\Laravel\Sync\Handlers;
 
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Support\Carbon;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\StateStore;
 use XerAds\Laravel\Sync\Envelope;
+use XerAds\Laravel\Sync\RemoteState;
 use XerAds\Laravel\Sync\WebhookReply;
 
 /**
@@ -21,6 +21,7 @@ final class SiteRevokedHandler implements EventHandler
 {
     public function __construct(
         private readonly StateStore $state,
+        private readonly RemoteState $remote,
         private readonly CredentialsResolver $credentials,
         private readonly Repository $config,
     ) {}
@@ -28,8 +29,10 @@ final class SiteRevokedHandler implements EventHandler
     public function handle(Envelope $envelope): WebhookReply
     {
         if ($this->state->available()) {
+            // Recorded with the key in force before it is deleted: a key
+            // from a later pairing is not the one XerAds removed.
+            $this->remote->markRevoked($envelope->siteId);
             $this->state->forget(CredentialsResolver::STATE_KEY);
-            $this->state->put('site_status', ['status' => 'revoked', 'at' => Carbon::now()->toIso8601String()]);
         }
 
         $this->credentials->forget();

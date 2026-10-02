@@ -52,6 +52,13 @@ return [
         'url' => env('XERADS_API_URL', 'https://api.xerads.id'),
         'timeout' => 10,
         'connect_timeout' => 5,
+
+        /*
+         * Signed requests go only to a public https address, checked before
+         * every request. A XerAds running on this machine for development
+         * needs this on; it is ignored in production.
+         */
+        'allow_private_hosts' => env('XERADS_API_ALLOW_PRIVATE_HOSTS', false),
     ],
 
     /*
@@ -367,13 +374,28 @@ return [
     /* ── Plumbing ────────────────────────────────────────────────────────── */
 
     /*
-     * How often settings and redirects are refreshed by the scheduler. A site
-     * without cron still refreshes after a response once the copy is older
-     * than `stale_after_minutes`.
+     * Keeping this site's copy of its settings and redirects current.
+     *
+     * With `scheduler` on, `xerads:sync` runs on `schedule` (a refresh, once
+     * the copy is stale) and a heartbeat on `heartbeat_schedule`, through the
+     * site's own scheduler. Left null, they run every 15 minutes and hourly,
+     * at minutes picked from the site id, so that sites do not all call
+     * XerAds in the same minute; a cron expression replaces that.
+     *
+     * A site without cron still refreshes after a response once the copy is
+     * older than `stale_after_minutes` (`after_response`). That stays off
+     * while the site's own test suite runs, unless `after_response_in_tests`.
+     * After a failure the next attempt waits `backoff` seconds, further for
+     * each failure in a row.
      */
     'sync' => [
-        'schedule' => '*/15 * * * *',
+        'scheduler' => true,
+        'schedule' => null,
+        'heartbeat_schedule' => null,
+        'after_response' => true,
+        'after_response_in_tests' => false,
         'stale_after_minutes' => 15,
+        'backoff' => [60, 300, 900, 3600, 21600],
     ],
 
     /*

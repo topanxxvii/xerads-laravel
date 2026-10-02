@@ -22,12 +22,12 @@ Built so far:
 - the paired webhook (contract 2): signed deliveries are verified, ordered,
   de-duplicated and written into your own model, with SEO data kept beside it;
 - widget rendering: placeholders become widget containers, and the loader is
-  added to any page that needs it.
+  added to any page that needs it;
+- pairing and sync: `xerads:pair` connects the site, and its SEO settings and
+  redirects are kept current (stored as data for now).
 
-Pairing a site from the XerAds dashboard, the turnkey blog and the SEO
-output arrive in later releases. Until pairing is available, connect a site
-through the custom endpoint, or try the paired path locally with
-`php artisan xerads:simulate` (see below).
+The turnkey blog, and the head tags, sitemap, robots.txt and redirects built
+from those settings, arrive in later releases.
 
 ## Requirements
 
@@ -66,6 +66,36 @@ edits `.env` and never deletes a file. `xerads:doctor` checks everything that
 can stop a delivery (the site key, the webhook route, the tables, your model
 and its columns) and exits non-zero when something is broken; `--json` for
 scripts.
+
+## Pairing
+
+Add the site in the XerAds dashboard, then run the command it shows, once,
+within 30 minutes:
+
+```bash
+php artisan xerads:pair xpc_…
+```
+
+The site key it receives is stored encrypted in the database and never
+printed; every server of the site reads it from there. To keep it in `.env`
+instead, `--print-env` prints an `XERADS_SITE_KEY=` line once. Pairing again
+(with `--rotate`) replaces the key; the old one keeps working for a day, so
+deliveries already on their way still verify. `--show` shows which key the
+site holds, by id.
+
+After pairing, the site keeps its copy of its SEO settings and redirects
+current: every 15 minutes through the scheduler (with a heartbeat every hour),
+at minutes picked from the site id so that sites do not all call XerAds at
+once; after a response when the copy is stale on a host without cron; and at
+once when XerAds announces a change. A failed sync keeps the last good copy and
+retries later, waiting longer after each failure in a row. The after-response
+refresh stays off while the application's own test suite runs.
+
+```bash
+php artisan xerads:sync          # refresh, if due
+php artisan xerads:sync --full   # everything, now
+php artisan xerads:status        # the connection at a glance (--json for scripts)
+```
 
 ## Paired deliveries (contract 2)
 
