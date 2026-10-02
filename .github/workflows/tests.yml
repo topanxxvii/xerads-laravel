@@ -1,0 +1,148 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Every supported Laravel release on every PHP version it supports. The
+  # package ships no lock file, so each row resolves its own dependency set,
+  # exactly as an application installing it would.
+  framework:
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} (${{ matrix.stability }})
+    runs-on: ubuntu-latest
+    # The Laravel 14 row runs against unreleased code and may break for
+    # reasons outside this package; it reports without failing the build.
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', laravel: '11.*', testbench: '9.*', stability: prefer-stable, experimental: false }
+          - { php: '8.3', laravel: '11.*', testbench: '9.*', stability: prefer-stable, experimental: false }
+          - { php: '8.4', laravel: '11.*', testbench: '9.*', stability: prefer-stable, experimental: false }
+
+          - { php: '8.2', laravel: '12.*', testbench: '10.*', stability: prefer-stable, experimental: false }
+          - { php: '8.3', laravel: '12.*', testbench: '10.*', stability: prefer-stable, experimental: false }
+          - { php: '8.4', laravel: '12.*', testbench: '10.*', stability: prefer-stable, experimental: false }
+          - { php: '8.5', laravel: '12.*', testbench: '10.*', stability: prefer-stable, experimental: false }
+
+          - { php: '8.3', laravel: '13.*', testbench: '11.*', stability: prefer-stable, experimental: false }
+          - { php: '8.4', laravel: '13.*', testbench: '11.*', stability: prefer-stable, experimental: false }
+          - { php: '8.5', laravel: '13.*', testbench: '11.*', stability: prefer-stable, experimental: false }
+
+          - { php: '8.5', laravel: 'dev-master as 14.0.0', testbench: '12.x-dev', stability: prefer-stable, experimental: true }
+
+          # The oldest dependency versions the constraints allow, on the
+          # oldest PHP: what a long-lived application is most likely to have.
+          - { php: '8.2', laravel: '11.*', testbench: '9.*', stability: prefer-lowest, experimental: false }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, json, xmlwriter, mbstring, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Allow development versions
+        if: matrix.experimental
+        run: composer config minimum-stability dev
+
+      # Unreleased Laravel: the analysis and Pest plugins may not declare
+      # support for it yet. Static analysis runs in its own workflow, so drop
+      # it here, and let Composer pick whatever Pest versions resolve.
+      - name: Relax tooling for the unreleased framework
+        if: matrix.experimental
+        run: |
+          composer remove --dev larastan/larastan --no-update --no-interaction
+          composer require --dev "pestphp/pest:*" "pestphp/pest-plugin-laravel:*" --no-update --no-interaction
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:${{ matrix.laravel }}" --no-interaction --no-update
+          composer require --dev "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+
+      - name: Installed versions
+        run: composer show laravel/framework orchestra/testbench pestphp/pest phpunit/phpunit
+
+      - name: Tests
+        run: vendor/bin/pest --ci
+
+  # The migrations and every query the package runs, on each database it
+  # supports, at the oldest version it supports where that matters (MariaDB
+  # 10.6). SQLite in memory is the default everywhere else.
+  database:
+    name: ${{ matrix.database }} / PHP 8.4 / Laravel 13
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { database: sqlite, port: '0', username: '' }
+          - { database: mysql, port: '3306', username: root }
+          - { database: mariadb, port: '3307', username: root }
+          - { database: pgsql, port: '5432', username: postgres }
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: testing
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: password
+          MARIADB_DATABASE: testing
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: testing
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    env:
+      DB_CONNECTION: ${{ matrix.database }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${{ matrix.port }}
+      DB_DATABASE: testing
+      DB_USERNAME: ${{ matrix.username }}
+      DB_PASSWORD: password
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, json, xmlwriter, mbstring, pdo_sqlite, sqlite3, pdo_mysql, pdo_pgsql
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:13.*" --no-interaction --no-update
+          composer require --dev "orchestra/testbench:11.*" --no-interaction --no-update
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Tests
+        run: vendor/bin/pest --ci

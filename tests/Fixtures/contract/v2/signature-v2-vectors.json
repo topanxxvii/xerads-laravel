@@ -1,0 +1,36 @@
+{
+    "description": "XerAds site contract v2 signature vectors. Push: v2=hex(hmac_sha256(secret, \"v2.{ts}.{delivery_id}.{raw_body}\")). Pull: v2=hex(hmac_sha256(secret, \"v2.{ts}.{nonce}.{METHOD}.{request_uri}.{sha256hex(raw_body)}\")).",
+    "secret": "q8xN3vV0b2cY5mT9wR1uE7aL4kZ6sD0fH2jG8pX3nB5",
+    "push": [
+        {
+            "ts": 1790000000,
+            "delivery_id": "01JB2M8Q4Z7X3K9V5T1R6W0Y2H",
+            "body": "{\"contract\":2,\"event\":\"ping\",\"delivery_id\":\"01JB2M8Q4Z7X3K9V5T1R6W0Y2H\",\"occurred_at\":\"2026-10-02T08:00:00Z\",\"site_id\":\"site_01jb2m8q4z7x3k9v5t1r6w0y2h\",\"sequence\":1,\"data\":{}}",
+            "expected": "v2=b39cc68fec23d5b258deb5f4e0312a2a8aeeed61af34d06e6f803d3819965ad3"
+        },
+        {
+            "ts": 1790000300,
+            "delivery_id": "01JB2N0A1B2C3D4E5F6G7H8J9K",
+            "body": "{\"contract\":2,\"event\":\"article.upsert\",\"data\":{\"article\":{\"title\":\"Panduan KPR 2026 — Syarat & “Bunga”\",\"content\":{\"html\":\"<p>Baca <a href=\\\"https://contoh.co.id/kpr?ref=x&y=1\\\">simulasi</a></p>\"}}}}",
+            "expected": "v2=dab1acb6e05f85525ba46773bdd3e69e5ae0970ebb35f3bd9371b131ba8a7669"
+        }
+    ],
+    "pull": [
+        {
+            "ts": 1790000000,
+            "nonce": "n0nce-AbC_123456",
+            "method": "GET",
+            "uri": "/api/site/v1/settings",
+            "body": "",
+            "expected": "v2=afc2ad43e90686156c81233c2dd10fbb1fd4d7e923b96b54d2523da0f56a905a"
+        },
+        {
+            "ts": 1790000060,
+            "nonce": "Zz9_yY8-xX7wW6vV",
+            "method": "POST",
+            "uri": "/api/site/v1/heartbeat?x=1&y=%C3%BC",
+            "body": "{\"plugin_version\":\"1.0.0\",\"key_id\":\"sk_01jb2m8q4z7x3k9v5t1r6w0y2h\"}",
+            "expected": "v2=34ae9e63d43b5b988ad1440aaa4e8a9d018325339b8ee01fdcd0e43931057c4e"
+        }
+    ]
+}

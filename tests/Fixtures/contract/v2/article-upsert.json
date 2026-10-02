@@ -1,0 +1,100 @@
+{
+    "contract": 2,
+    "event": "article.upsert",
+    "delivery_id": "01JB2M8Q4Z7X3K9V5T1R6W0Y2H",
+    "occurred_at": "2026-10-02T08:00:00Z",
+    "site_id": "site_01jb2m8q4z7x3k9v5t1r6w0y2h",
+    "sequence": 1842,
+    "data": {
+        "article": {
+            "xerads_id": "01JA9Z5K7M3X8Q2W4E6R1T0Y9U",
+            "language": "id",
+            "translation_group": null,
+            "title": "Panduan KPR 2026",
+            "headline": "Panduan KPR 2026: Syarat dan Bunga",
+            "slug": "panduan-kpr-2026",
+            "excerpt": "Syarat, bunga dan simulasi KPR 2026.",
+            "content": {
+                "html": "<p>KPR adalah <strong>kredit</strong> rumah. Baca <a href=\"/blog/dp-rumah\">panduan DP</a>.</p><h2 id=\"apa-itu-kpr\">Apa itu KPR</h2><p>Penjelasan singkat.</p><figure class=\"article-body-image\"><img src=\"https://api.xerads.test/storage/articles/kpr-body.png\" alt=\"Ilustrasi KPR\"></figure><p>[xerads_widget id=\"w_k3v9q2m8x1c4b7na\" lang=\"id\"]</p><h3 id=\"syarat\">Syarat</h3><p>KTP, slip gaji.</p>",
+                "format": "html",
+                "h1_removed": true,
+                "word_count": 20,
+                "reading_time_minutes": 1
+            },
+            "toc": [
+                {
+                    "id": "apa-itu-kpr",
+                    "text": "Apa itu KPR",
+                    "level": 2
+                },
+                {
+                    "id": "syarat",
+                    "text": "Syarat",
+                    "level": 3
+                }
+            ],
+            "seo": {
+                "title": "Panduan KPR 2026: Syarat, Bunga, Simulasi",
+                "description": "Syarat, bunga dan simulasi KPR 2026.",
+                "focus_keyword": "kpr",
+                "keywords": [
+                    "kpr",
+                    "bunga kpr"
+                ],
+                "canonical_url": null,
+                "robots": {
+                    "index": true,
+                    "follow": true
+                },
+                "og": {
+                    "title": null,
+                    "description": null
+                },
+                "twitter": {
+                    "card": "summary_large_image"
+                },
+                "schema_type": "BlogPosting",
+                "score": 86
+            },
+            "image": {
+                "url": "https://cdn.xerads.test/articles/panduan-kpr-2026-1.png",
+                "alt": "Rumah dengan KPR",
+                "caption": "Ilustrasi | Gambar dibuat AI",
+                "width": 1536,
+                "height": 1024,
+                "mime": "image/png"
+            },
+            "media": [
+                {
+                    "url": "https://api.xerads.test/storage/articles/kpr-body.png",
+                    "alt": "Ilustrasi KPR",
+                    "role": "body"
+                }
+            ],
+            "taxonomy": {
+                "categories": [],
+                "tags": []
+            },
+            "author": null,
+            "widgets": [
+                {
+                    "id": "w_k3v9q2m8x1c4b7na",
+                    "lang": "id",
+                    "known": true,
+                    "min_height": {
+                        "mobile": 2320,
+                        "desktop": 1190
+                    }
+                }
+            ],
+            "dates": {
+                "created_at": "2026-10-01T08:00:00Z",
+                "content_updated_at": "2026-10-01T08:00:00Z",
+                "published_at": "2026-10-01T09:30:00Z"
+            },
+            "revision": "sha256:3653bc7ebaa00422eb9a352c2817c3ead76540ee6cd7dbb0a9b658d15b3bfa35",
+            "remote_id": "42",
+            "status": "publish"
+        }
+    }
+}

@@ -1,5 +1,15 @@
 <?php
 
+/*
+ * Legacy configuration for the original custom-endpoint receiver.
+ *
+ * Kept so `php artisan vendor:publish --tag=xerads-cms-config` and an already
+ * published copy keep working: when this file exists in config/, its values
+ * are copied onto `config/xerads.php` (the `legacy` and `content.mapped`
+ * groups) and the mapped content mode is selected. New installs should
+ * publish `--tag=xerads-config` instead.
+ */
+
 return [
     /*
      * The Secret Token from the XerAds CMS connection, byte for byte.
@@ -29,7 +39,7 @@ return [
     /* ── Where articles land ─────────────────────────────────────────────── */
 
     /** Your post model. */
-    'model' => env('XERADS_CMS_MODEL', '\App\Models\Post'),
+    'model' => env('XERADS_CMS_MODEL', 'App\Models\Post'),
 
     /*
      * Column names, because no two sites agree on them. A field mapped to null
@@ -43,6 +53,7 @@ return [
         'meta_description' => 'meta_description',
         'image_url' => null,
         'status' => 'status',
+        'keywords' => null,
     ],
 
     /*

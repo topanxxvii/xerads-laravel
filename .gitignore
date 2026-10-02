@@ -1,0 +1,8 @@
+/vendor/
+/build/
+/.phpunit.cache/
+.phpunit.result.cache
+
+# A library ships no lock file: the application that installs it resolves
+# its own dependency versions, and CI tests the whole supported range.
+composer.lock

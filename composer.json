@@ -1,33 +1,69 @@
 {
-    "name": "xerads/cms-bridge",
-    "description": "Receive articles published from XerAds into a Laravel site.",
+    "name": "xerads/laravel",
+    "description": "Publish XerAds articles into Laravel with on-page and technical SEO and XerAds widgets.",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "xerads",
+        "seo",
+        "cms",
+        "webhook",
+        "widgets"
+    ],
     "require": {
         "php": "^8.2",
-        "illuminate/support": "^11.0|^12.0",
-        "illuminate/http": "^11.0|^12.0",
-        "illuminate/routing": "^11.0|^12.0"
+        "ext-dom": "*",
+        "ext-json": "*",
+        "ext-xmlwriter": "*",
+        "laravel/framework": "^11.0|^12.0|^13.0|^14.0",
+        "masterminds/html5": "^2.8",
+        "symfony/html-sanitizer": "^7.1|^8.0"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.0|^10.0",
-        "pestphp/pest": "^3.0"
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "pestphp/pest": "^3.7|^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0"
+    },
+    "suggest": {
+        "inertiajs/inertia-laravel": "Shares the SEO head with Inertia pages as a shared prop."
+    },
+    "replace": {
+        "xerads/cms-bridge": "self.version"
     },
     "autoload": {
         "psr-4": {
-            "XerAds\\CmsBridge\\": "src/"
+            "XerAds\\Laravel\\": "src/",
+            "XerAds\\CmsBridge\\": "compat/cms-bridge/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "XerAds\\CmsBridge\\Tests\\": "tests/"
+            "XerAds\\Laravel\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "XerAds\\CmsBridge\\CmsBridgeServiceProvider"
-            ]
+                "XerAds\\Laravel\\XeradsServiceProvider"
+            ],
+            "aliases": {
+                "Xerads": "XerAds\\Laravel\\Facades\\Xerads"
+            }
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "format": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
         }
     },
     "minimum-stability": "stable",

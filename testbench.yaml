@@ -1,0 +1,18 @@
+providers:
+  - XerAds\Laravel\XeradsServiceProvider
+
+migrations:
+  - workbench/database/migrations
+
+workbench:
+  start: '/'
+  install: true
+  discovers:
+    web: false
+    api: false
+    commands: false
+    components: false
+    views: false
+  build:
+    - create-sqlite-db
+    - migrate:refresh
