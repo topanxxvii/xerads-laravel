@@ -6,7 +6,7 @@ namespace XerAds\Laravel\Widgets;
  * Finds `[xerads_widget id="w_…" lang="id"]` in text.
  *
  * The shortcode is the form that survives every editor between XerAds and the
- * page (sites contract, "Content"), so it is parsed leniently: single, double,
+ * page, so it is parsed leniently: single, double,
  * HTML-encoded (`&quot;`) and typographic (“…”) quotes, any attribute order,
  * any case. `[[xerads_widget …]]` is an escaped literal, printed as
  * `[xerads_widget …]` so an article can show the syntax itself.

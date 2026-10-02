@@ -11,8 +11,10 @@ Nothing yet.
 ## 1.0.0 - 2026-10-02
 
 The first release of `xerads/laravel`, which replaces `xerads/cms-bridge`.
-It runs on Laravel 11, 12 and 13 with PHP 8.2 or later, and on MySQL,
-MariaDB, PostgreSQL and SQLite.
+It is supported and tested on Laravel 11, 12 and 13 with PHP 8.2 or later,
+and on MySQL, MariaDB, PostgreSQL and SQLite. Laravel 14 is declared ahead of
+its release: until it ships, CI tests it against its development branch in a
+row that is allowed to fail.
 
 ### Connecting a site
 

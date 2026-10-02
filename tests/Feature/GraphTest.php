@@ -114,7 +114,7 @@ it('uses the settings\' article type and default author', function () {
 });
 
 it('describes the organisation from the settings', function () {
-    holdSettings(['organization' => ['type' => 'LocalBusiness', 'name' => 'PT Toko', 'legal_name' => 'PT Toko Sejahtera', 'logo' => ['url' => 'https://cdn.toko.test/logo.png'], 'same_as' => ['https://instagram.com/toko']]]);
+    holdSettings(['organization' => ['type' => 'LocalBusiness', 'name' => 'PT Toko', 'legal_name' => 'PT Toko Sejahtera', 'logo' => ['url' => 'https://cdn.toko.test/logo.png'], 'same_as' => ['https://social.example/toko']]]);
 
     $organization = jsonLd(headOf(headPage($this, '/')))['@graph'][0];
 
@@ -125,7 +125,7 @@ it('describes the organisation from the settings', function () {
         'legalName' => 'PT Toko Sejahtera',
         'url' => 'http://localhost/',
         'logo' => ['@type' => 'ImageObject', '@id' => 'http://localhost/#logo', 'url' => 'https://cdn.toko.test/logo.png', 'contentUrl' => 'https://cdn.toko.test/logo.png'],
-        'sameAs' => ['https://instagram.com/toko'],
+        'sameAs' => ['https://social.example/toko'],
     ]);
 });
 

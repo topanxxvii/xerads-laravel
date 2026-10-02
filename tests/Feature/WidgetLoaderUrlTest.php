@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 use XerAds\Laravel\Seo\Inertia\ShareHead;
 use XerAds\Laravel\Widgets\Runtime;
 
-const STAGING_LOADER = 'https://staging-widgets.xerads.id/v1/loader.js';
+const SETTINGS_LOADER = 'https://widgets.xerads.test/v1/loader.js';
 
 function loaderUrl(): string
 {
@@ -25,22 +25,22 @@ it('uses the default address with nothing configured', function () {
 });
 
 it('uses the loader the settings name, everywhere it is printed', function () {
-    holdSettings(['widgets' => ['loader_url' => STAGING_LOADER]]);
+    holdSettings(['widgets' => ['loader_url' => SETTINGS_LOADER]]);
 
-    expect(loaderUrl())->toBe(STAGING_LOADER)
-        ->and(app(Runtime::class)->documentUrl('w_k3v9q2m8x1c4b7na'))->toBe('https://staging-widgets.xerads.id/w/w_k3v9q2m8x1c4b7na.json')
-        ->and(ShareHead::props()['widgets']['loader_url'])->toBe(STAGING_LOADER);
+    expect(loaderUrl())->toBe(SETTINGS_LOADER)
+        ->and(app(Runtime::class)->documentUrl('w_k3v9q2m8x1c4b7na'))->toBe('https://widgets.xerads.test/w/w_k3v9q2m8x1c4b7na.json')
+        ->and(ShareHead::props()['widgets']['loader_url'])->toBe(SETTINGS_LOADER);
 
     // The scripts component, and the middleware that adds the loader.
     Route::middleware('web')->get('/with-widget', fn () => Blade::render('<html><body>@xeradsWidget("w_k3v9q2m8x1c4b7na")<x-xerads::scripts /></body></html>'));
     Route::middleware('web')->get('/pasted', fn () => '<html><body><div data-xerads-widget="w_k3v9q2m8x1c4b7na"></div></body></html>');
 
-    expect((string) $this->get('/with-widget')->getContent())->toContain('<script src="'.STAGING_LOADER.'" async></script>')
-        ->and((string) $this->get('/pasted')->getContent())->toContain('src="'.STAGING_LOADER.'"');
+    expect((string) $this->get('/with-widget')->getContent())->toContain('<script src="'.SETTINGS_LOADER.'" async></script>')
+        ->and((string) $this->get('/pasted')->getContent())->toContain('src="'.SETTINGS_LOADER.'"');
 });
 
 it('lets the site\'s config win over the settings', function () {
-    holdSettings(['widgets' => ['loader_url' => STAGING_LOADER]]);
+    holdSettings(['widgets' => ['loader_url' => SETTINGS_LOADER]]);
 
     config(['xerads.widgets.runtime_url' => 'https://widgets.toko.test']);
     expect(loaderUrl())->toBe('https://widgets.toko.test/v1/loader.js');

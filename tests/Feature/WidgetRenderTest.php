@@ -101,9 +101,9 @@ it('always prints the loader and the navigation hook with scripts spa', function
 });
 
 it('takes the loader address from config, never from a copy', function () {
-    config(['xerads.widgets.runtime_url' => 'https://widgets-staging.xerads.id/']);
+    config(['xerads.widgets.runtime_url' => 'https://widgets.xerads.test/']);
 
-    expect(Blade::render('<x-xerads::scripts spa />'))->toContain('src="https://widgets-staging.xerads.id/v1/loader.js"');
+    expect(Blade::render('<x-xerads::scripts spa />'))->toContain('src="https://widgets.xerads.test/v1/loader.js"');
 
     app()->forgetScopedInstances();
     config(['xerads.widgets.loader_url' => 'https://cdn.example.com/xerads/v2/loader.js']);

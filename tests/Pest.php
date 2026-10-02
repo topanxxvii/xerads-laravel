@@ -137,7 +137,7 @@ function deliver(TestCase $test, array|string $envelope, array $headers = [], st
     return $test->call('POST', '/xerads/v1/webhook', [], [], [], $server, $body);
 }
 
-/** The widget container exactly as the dashboard's script embed code writes it (widgets contract §3.1). */
+/** The widget container exactly as the dashboard's script embed code writes it. */
 function scriptContainer(): string
 {
     return explode("\n", widgetEmbeds()['embeds']['script'])[0];
@@ -207,7 +207,7 @@ function heartbeatReply(array $overrides = []): array
 }
 
 /**
- * Fake XerAds' site API. Each endpoint answers as the backend does unless
+ * Fake XerAds' site API. Each endpoint answers as XerAds does unless
  * replaced: pass a response, or a closure returning one, per path. Calling it
  * again sets every answer anew (a second Http::fake() would not: the first
  * stub registered keeps answering).

@@ -1,8 +1,8 @@
 <?php
 
 /**
- * The client against the signature vectors XerAds' own suite asserts, and
- * against the ways the site API can refuse.
+ * The client against XerAds' contract 2 signature vectors, and against the
+ * ways the site API can refuse.
  */
 
 use Illuminate\Support\Facades\Http;
@@ -45,13 +45,13 @@ it('signs pulls exactly as the shared vectors say', function (int $index) {
 })->with([0, 1]);
 
 it('signs the path it sends to, including a prefix in the API address', function () {
-    config(['xerads.api.url' => 'https://xerads.example/backend', 'xerads.credentials.key' => testSiteKey()]);
-    Http::fake(['https://xerads.example/backend/api/site/v1/heartbeat' => Http::response(heartbeatReply())]);
+    config(['xerads.api.url' => 'https://xerads.example/prefix', 'xerads.credentials.key' => testSiteKey()]);
+    Http::fake(['https://xerads.example/prefix/api/site/v1/heartbeat' => Http::response(heartbeatReply())]);
 
     client()->heartbeat(['plugin_version' => '1.0.0']);
 
     $request = Http::recorded()->first()[0];
-    $expected = app(V2Signer::class)->pull(TEST_SECRET, (int) $request->header('X-XerAds-Timestamp')[0], $request->header('X-XerAds-Nonce')[0], 'POST', '/backend/api/site/v1/heartbeat', $request->body());
+    $expected = app(V2Signer::class)->pull(TEST_SECRET, (int) $request->header('X-XerAds-Timestamp')[0], $request->header('X-XerAds-Nonce')[0], 'POST', '/prefix/api/site/v1/heartbeat', $request->body());
 
     expect($request->header('X-XerAds-Signature')[0])->toBe($expected);
 });

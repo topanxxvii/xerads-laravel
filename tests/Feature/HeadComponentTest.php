@@ -42,7 +42,7 @@ beforeEach(function () {
 it('prints a turnkey article\'s whole head', function () {
     $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()]);
     app()->detectEnvironment(fn () => 'production');
-    holdSettings(['site' => ['name' => 'Toko', 'tagline' => 'Rumah impian', 'url' => 'https://toko.test', 'default_language' => 'id'], 'meta' => ['twitter_site' => '@toko']]);
+    holdSettings(['site' => ['name' => 'Toko', 'tagline' => 'Rumah impian', 'url' => 'https://toko.test', 'default_language' => 'id'], 'meta' => ['twitter_site' => '@toko_contoh']]);
 
     deliver($this, upsertEnvelope([
         'taxonomy' => ['categories' => [['name' => 'Keuangan', 'slug' => 'keuangan']], 'tags' => [['name' => 'KPR', 'slug' => 'kpr']]],

@@ -5,13 +5,17 @@ namespace XerAds\Laravel\Content;
 use Illuminate\Support\Str;
 
 /**
- * The heading-id rule both sides of the site contract apply (sites contract,
- * "Heading ids"). A port of XerAds' own implementation, line for line, and
- * tested with the same cases.
+ * The id each `<h2>` and `<h3>` of an article gets, by the same rule XerAds
+ * uses, so a link to `#apa-itu-kpr` reaches the same section whichever side
+ * named it.
  *
- * Both sides assign ids, because the dashboard's editor drops them on save:
- * whichever side gives `Apa itu KPR` its id, a link to `#apa-itu-kpr` keeps
- * working. Change it in both places or not at all.
+ * Headings are taken in document order. A heading keeps its own id when that
+ * id is valid (lowercase letters, digits and hyphens, starting with a letter
+ * or a digit, at most 80 characters) and not taken yet. Otherwise its text is
+ * slugged (`Apa itu KPR` becomes `apa-itu-kpr`) and cut to 80 characters, or
+ * becomes `section` when nothing is left; a slug already taken gets `-2`,
+ * `-3`, … appended, its base shortened so the whole stays within 80
+ * characters. Ids used elsewhere in the document count as taken.
  */
 final class HeadingIds
 {

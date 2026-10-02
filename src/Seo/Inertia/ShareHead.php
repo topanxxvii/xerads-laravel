@@ -21,8 +21,14 @@ use XerAds\Laravel\Widgets\Runtime;
  */
 final class ShareHead
 {
-    /** @param  (Closure(string, Closure): mixed)|null  $share  how to share a prop; Inertia::share by default */
-    public function __construct(private readonly ?Closure $share = null) {}
+    /**
+     * @param  (Closure(string, Closure): mixed)|null  $share  how to share a prop; Inertia::share by default
+     * @param  bool|null  $installed  whether Inertia is installed; detected when null
+     */
+    public function __construct(
+        private readonly ?Closure $share = null,
+        private readonly ?bool $installed = null,
+    ) {}
 
     public static function available(): bool
     {
@@ -31,7 +37,8 @@ final class ShareHead
 
     public function register(): bool
     {
-        $share = $this->share ?? (self::available() ? Closure::fromCallable(['Inertia\\Inertia', 'share']) : null);
+        $installed = $this->installed ?? self::available();
+        $share = $this->share ?? ($installed ? Closure::fromCallable(['Inertia\\Inertia', 'share']) : null);
 
         if ($share === null) {
             return false;

@@ -16,8 +16,8 @@ use XerAds\Laravel\Support\UrlGuard;
  * Only `layout.min_height.mobile` is read, to reserve the right amount of
  * space before the runtime loads so the page does not jump. Nothing else in
  * the document is looked at, and in particular not whether the widget is
- * active: the runtime decides visibility in the browser (widgets contract
- * §2.3), with fresher data than any copy here.
+ * active: the runtime decides visibility in the browser, with fresher data
+ * than any copy here.
  *
  * Cached so a page view never waits on it twice: fresh for
  * `widgets.document_ttl` seconds, then served stale for up to a day while a

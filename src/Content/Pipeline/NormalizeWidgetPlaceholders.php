@@ -11,12 +11,12 @@ use XerAds\Laravel\Widgets\ShortcodeParser;
  * Every way a widget can be placed in an article, turned into the one
  * placeholder this package stores: `[xerads_widget id="…" lang="…"]`.
  *
- * Authors paste whatever the dashboard handed them (sites contract,
- * "Content"): a `data-xerads-widget` container, the embed iframe, a block
- * comment, even the Blade component meant for templates. Storing one form means one way to render it, and the placeholder
- * is plain text, so the sanitiser keeps it without allowing iframes or
- * inline styles. Loader script tags are removed; the page includes the
- * loader once, wherever widgets appear.
+ * Authors paste whatever embed code the dashboard handed them: a
+ * `data-xerads-widget` container, the embed iframe, a block comment, even the
+ * Blade component meant for templates. Storing one form means one way to
+ * render it, and the placeholder is plain text, so the sanitiser keeps it
+ * without allowing iframes or inline styles. Loader script tags are removed;
+ * the page includes the loader once, wherever widgets appear.
  *
  * Runtime paths are matched by `/v<digits>/`, not `/v1/`, so a future runtime
  * version is still recognised.

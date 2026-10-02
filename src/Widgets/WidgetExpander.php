@@ -12,8 +12,8 @@ use XerAds\Laravel\Support\Html\Dom;
 /**
  * Turns `[xerads_widget]` placeholders into widget containers.
  *
- * The container is exactly the one in widgets contract §3.1, the same markup
- * the dashboard's "script" embed code has:
+ * The container is exactly the markup the widget runtime mounts, the same
+ * as the dashboard's "script" embed code:
  *
  *     <div data-xerads-widget="{id}" data-lang="{lang}" style="min-height:{H}px"></div>
  *
@@ -49,7 +49,7 @@ final class WidgetExpander
         return $this->features->has('widgets');
     }
 
-    /** The §3.1 container, as HTML. */
+    /** The widget's container, as HTML. */
     public function container(string $id, ?string $lang, int $height): string
     {
         return '<div data-xerads-widget="'.e($id).'"'

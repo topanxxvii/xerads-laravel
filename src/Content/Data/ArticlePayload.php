@@ -5,7 +5,7 @@ namespace XerAds\Laravel\Content\Data;
 use XerAds\Laravel\Content\Exceptions\InvalidPayload;
 
 /**
- * `data.article` of an `article.upsert`, typed (sites contract, "Article").
+ * `data.article` of an `article.upsert`, typed, as XerAds sends it.
  *
  * Every field but the article id is optional, and a value of the wrong type
  * becomes null or empty rather than a TypeError: a field XerAds adds, renames

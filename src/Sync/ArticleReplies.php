@@ -13,8 +13,8 @@ use XerAds\Laravel\Support\Version;
  * The content map writes, the ordering check and the replies every article
  * event shares.
  *
- * The reply shape is the contract's (sites contract, "Push replies"): `id`
- * and `url` at the top level, `url` only while the article is published, and
+ * The reply is shaped the way XerAds reads it: `id` and `url` at the top
+ * level, `url` only while the article is published, and
  * the sequence and revision this site now holds, so XerAds can tell which
  * version of the article the site has.
  */

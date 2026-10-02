@@ -1,9 +1,8 @@
 <?php
 
 /**
- * The heading-id rule, with the very cases XerAds' own suite asserts
- * (tests/Unit/Sites/ContractPrimitivesTest.php in the backend), so both sides
- * provably name sections the same way.
+ * The heading-id rule, with the same cases XerAds' own contract tests
+ * assert, so the site and XerAds provably name sections the same way.
  */
 
 use XerAds\Laravel\Content\HeadingIds;

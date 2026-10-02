@@ -11,7 +11,8 @@ use XerAds\Laravel\Widgets\WidgetExpander;
 /**
  * `<x-xerads::widget id="w_…" lang="id" />`: one widget, anywhere in a view.
  *
- * Renders the §3.1 container and records that the page needs the loader.
+ * Renders the widget's container (`<div data-xerads-widget="…">`, see
+ * WidgetExpander) and records that the page needs the loader.
  * An invalid id renders nothing for visitors; with `editor` set, a short
  * notice instead, so the person placing it sees why it is missing.
  */

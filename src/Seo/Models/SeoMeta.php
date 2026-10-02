@@ -14,7 +14,9 @@ use XerAds\Laravel\Support\Concerns\UsesXeradsTables;
  * schema stays untouched. Fields listed in `locked_fields` were set on the
  * site and are never overwritten by a later delivery.
  *
- * Data only in this release; the head tags are rendered from it later.
+ * The head (`<x-xerads::head>`, `@xeradsHead`, `Xerads::head()->for($model)`)
+ * reads it through ProvidesSeo, for the page's title, description, canonical,
+ * robots and share tags.
  *
  * @property string $seoable_type
  * @property int|string $seoable_id

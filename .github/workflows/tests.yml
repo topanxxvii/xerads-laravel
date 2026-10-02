@@ -57,14 +57,15 @@ jobs:
         if: matrix.experimental
         run: composer config minimum-stability dev
 
-      # Unreleased Laravel: the analysis and Pest plugins may not declare
-      # support for it yet. Static analysis runs in its own workflow, so drop
-      # it here, and let Composer pick whatever Pest versions resolve.
+      # Unreleased Laravel: static analysis and the Inertia adapter may not
+      # declare support for it yet. Static analysis runs in its own workflow,
+      # and the Inertia tests skip themselves without the adapter, so drop
+      # both here, and let Composer pick whatever Pest version resolves.
       - name: Relax tooling for the unreleased framework
         if: matrix.experimental
         run: |
-          composer remove --dev larastan/larastan --no-update --no-interaction
-          composer require --dev "pestphp/pest:*" "pestphp/pest-plugin-laravel:*" --no-update --no-interaction
+          composer remove --dev larastan/larastan inertiajs/inertia-laravel --no-update --no-interaction
+          composer require --dev "pestphp/pest:*" --no-update --no-interaction
 
       - name: Install dependencies
         run: |
@@ -72,8 +73,9 @@ jobs:
           composer require --dev "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
 
+      # For the log only: never fails the job.
       - name: Installed versions
-        run: composer show laravel/framework orchestra/testbench pestphp/pest phpunit/phpunit
+        run: composer show --no-ansi | grep -E '^(laravel/framework|orchestra/testbench|pestphp/pest|phpunit/phpunit|inertiajs/inertia-laravel) ' || true
 
       - name: Tests
         run: vendor/bin/pest --ci

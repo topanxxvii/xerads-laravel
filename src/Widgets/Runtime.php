@@ -12,7 +12,7 @@ use XerAds\Laravel\Seo\SettingsRepository;
  * The loader is always referenced at its XerAds address and never copied
  * into the site: it derives its own base URL from its `src`, re-scans the page
  * when included again, and gains widget types and fixes without a package
- * release (widgets contract §3.2).
+ * release.
  */
 final class Runtime
 {

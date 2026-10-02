@@ -17,8 +17,8 @@ use XerAds\Laravel\Sync\Client\Exceptions\ApiUnavailable;
 use XerAds\Laravel\Sync\Client\XeradsClient;
 
 /**
- * Pairing: a one-time code from the XerAds dashboard, exchanged for this
- * site's key (sites contract, "Pairing").
+ * Pairing: a one-time code from the XerAds dashboard, exchanged with XerAds
+ * for this site's key.
  *
  * The key is stored encrypted in the database, where every server of the
  * site reads it and `config:cache` cannot freeze an old one. Pairing again

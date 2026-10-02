@@ -35,9 +35,10 @@ Contents: [Requirements](#requirements) ·
   extensions. The `curl` extension is recommended: outbound requests are
   pinned to the address the package checked only when PHP sends them through
   it.
-- Laravel 11 (PHP 8.2 to 8.4), 12 (PHP 8.2 to 8.5) or 13 (PHP 8.3 to 8.5).
-  Laravel 14 is declared and tested against its development branch until it
-  is released.
+- Laravel 11 (PHP 8.2 to 8.4), 12 (PHP 8.2 to 8.5) or 13 (PHP 8.3 to 8.5),
+  each supported and tested. Laravel 14 is declared ahead of its release:
+  until it ships, CI tests it against its development branch in a row that
+  is allowed to fail.
 - MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+ or SQLite 3.35+.
 - A site served over https: XerAds pairs only with https sites.
 - For the full feature set, the Laravel scheduler running every minute and a
@@ -308,9 +309,10 @@ can carry its own robots choice: `Route::get(…)->xeradsRobots('noindex')`.
 
 ## Inertia, Livewire and Octane
 
-- **Inertia.** With Inertia installed, the head is shared as the `xerads`
-  prop (`{title, meta, link, jsonld}`) on every response of the `web` group,
-  for the page head of your front end to render after a navigation
+- **Inertia.** With Inertia installed, every response of the `web` group
+  shares a `xerads` prop, `{head: {title, meta, link, jsonld}, widgets:
+  {loader_url}}`, for the page head of your front end to render after a
+  navigation: read it at `page.props.xerads.head`
   (`xerads.seo.inertia.share` turns it off). Keep `@xeradsHead` in the root
   view too, for the first, crawlable load.
 - **Inertia and Livewire navigation.** Pages that change without a reload
@@ -326,8 +328,10 @@ can carry its own robots choice: `Route::get(…)->xeradsRobots('noindex')`.
 A XerAds widget is placed in an article as
 `[xerads_widget id="w_…" lang="id"]`, or as any embed code the dashboard
 hands out; the package stores the placeholder and renders the container the
-widget runtime mounts. The runtime is always loaded from
-`https://widgets.xerads.id`, never copied into your site.
+widget runtime mounts. The runtime is always loaded from XerAds (by
+default `https://widgets.xerads.id`, or the address in the site's XerAds
+settings), never copied into your site, so new widget types arrive without
+a package update.
 
 With the default `content_format` (`html`), `{!! $post->body !!}` is all a
 template needs: a middleware adds the loader to any page with a widget on it,
@@ -345,8 +349,10 @@ frame-src   https://widgets.xerads.id
 connect-src https://widgets.xerads.id
 ```
 
-`XERADS_WIDGETS_URL` points the runtime at another host; allow that one
-instead.
+If the runtime comes from another host (`XERADS_WIDGETS_URL`,
+`xerads.widgets.loader_url`, or the address in the site's XerAds settings),
+allow that host instead. In code, `app(\XerAds\Laravel\Widgets\Runtime::class)->loaderUrl()`
+returns the address in use.
 
 ## On-page SEO
 
@@ -622,8 +628,8 @@ vendor:publish --tag=xerads-config`). The keys that matter most:
 | `redirects.enabled` | | true | Apply the redirects |
 | `monitor_404.enabled`, `.ignore` | | true, `[]` | The 404 monitor and paths it leaves out |
 | `middleware.global` and the switches beside it | | true | The package's global middleware |
-| `widgets.runtime_url` | `XERADS_WIDGETS_URL` | `https://widgets.xerads.id` | The widget runtime |
-| `widgets.inject_loader`, `.inject_except` | | true, `admin` | Where the loader is added |
+| `widgets.runtime_url` | `XERADS_WIDGETS_URL` | null | The widget runtime; null takes the address in the settings from XerAds, else `https://widgets.xerads.id` |
+| `widgets.inject_loader`, `.inject_except` | | true, `['admin', 'admin/*']` | Where the loader is added |
 | `sync.scheduler`, `.schedule`, `.heartbeat_schedule` | | true, null, null | The scheduled sync |
 | `queue.connection`, `.queue` | | null | Where the package's jobs go |
 | `cache.store`, `.prefix` | | null, `xerads` | Where the package caches |
@@ -883,8 +889,9 @@ composer analyse   # static analysis, level 6
 composer format    # code style
 ```
 
-The shared contract fixtures in `tests/Fixtures/contract/` are the same files
-XerAds tests its sending side against; change them on both sides together.
+The fixtures in `tests/Fixtures/contract/` are exactly what XerAds sends, and
+are kept byte-identical with XerAds' own contract tests. Please do not edit
+them; if one looks wrong, open an issue.
 
 ## License
 

@@ -24,8 +24,9 @@
     "homepage": "https://xerads.id",
     "support": {
         "email": "support@xerads.id",
-        "issues": "https://xerads.id/contact",
-        "docs": "https://packagist.org/packages/xerads/laravel"
+        "issues": "https://github.com/topanxxvii/xerads-laravel/issues",
+        "source": "https://github.com/topanxxvii/xerads-laravel",
+        "docs": "https://github.com/topanxxvii/xerads-laravel#readme"
     },
     "require": {
         "php": "^8.2",
@@ -37,13 +38,14 @@
         "symfony/html-sanitizer": "^7.1|^8.0"
     },
     "require-dev": {
+        "inertiajs/inertia-laravel": "^2.0|^3.0",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
         "orchestra/testbench": "^9.0|^10.0|^11.0",
-        "pestphp/pest": "^3.7|^4.0",
-        "pestphp/pest-plugin-laravel": "^3.0|^4.0"
+        "pestphp/pest": "^3.7|^4.0"
     },
     "suggest": {
+        "ext-curl": "Pins outbound requests (images, widget documents, the XerAds API) to the address the package checked.",
         "inertiajs/inertia-laravel": "Shares the SEO head with Inertia pages as a shared prop."
     },
     "replace": {

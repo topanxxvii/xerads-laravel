@@ -3,7 +3,7 @@
 namespace XerAds\Laravel\Sync;
 
 /**
- * Every contract 2 message, pushed or pulled (sites contract, "Envelope"):
+ * XerAds' contract 2 envelope, around every message, pushed or pulled:
  *
  *     {"contract":2,"event":"article.upsert","delivery_id":"01JB…",
  *      "occurred_at":"…Z","site_id":"site_…","sequence":1842,"data":{…}}

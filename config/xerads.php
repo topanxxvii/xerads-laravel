@@ -399,7 +399,7 @@ return [
      * Null uses the address from the dashboard settings.
      */
     'widgets' => [
-        // Null means https://widgets.xerads.id.
+        // Null: the dashboard settings' address, else https://widgets.xerads.id.
         'runtime_url' => env('XERADS_WIDGETS_URL'),
         // Null means {runtime_url}/v1/loader.js.
         'loader_url' => null,

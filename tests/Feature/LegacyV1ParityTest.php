@@ -3,9 +3,9 @@
 /**
  * The legacy endpoint, driven with the exact bytes XerAds sends.
  *
- * The request body, timestamp, secret and signature come from the v1 golden
- * fixture, which XerAds' own suite pins on the sending side. If either side
- * drifts, one of the two suites fails before a customer's site does.
+ * The request body, timestamp, secret and signature come from the v1
+ * fixture: exactly what XerAds sends to a custom endpoint, kept
+ * byte-identical with XerAds' own contract tests.
  */
 
 use Illuminate\Http\Exceptions\HttpResponseException;

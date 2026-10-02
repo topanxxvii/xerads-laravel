@@ -20,7 +20,7 @@ use XerAds\Laravel\Sync\WebhookReply;
  * has been seen before (the ledger), hands it to its event's handler, and
  * answers in the contract's shape. Every reply is JSON with a stable error
  * code, because XerAds decides from the code whether to retry, give up or
- * alert the owner (sites contract, "How XerAds reads a reply").
+ * alert the owner.
  */
 final class WebhookController
 {

@@ -202,8 +202,8 @@ final class Synchronizer
         $version = $data['version'] ?? null;
 
         if (! is_int($version) || ! $this->wellFormed($document, $data)) {
-            // Keep the last good copy rather than replace it with something
-            // later releases could not render.
+            // Keep the last good copy rather than replace it with one this
+            // package cannot use.
             throw new ApiUnavailable("XerAds sent {$document} in a shape this package does not recognise.");
         }
 

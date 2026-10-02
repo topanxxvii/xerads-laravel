@@ -10,10 +10,10 @@ use XerAds\Laravel\Support\Html\Dom;
 /**
  * Ids on every `<h2>` and `<h3>`, by the contract's rule (HeadingIds).
  *
- * XerAds sends them already, but the dashboard's editor drops ids when an
- * article is edited, so the site assigns them again by the same rule: a link
- * to a section keeps working whichever side named it. Ids of other elements
- * count as taken, so a heading never collides with an anchor already there.
+ * XerAds usually sends them already; the site assigns them again by the same
+ * rule, so a heading that arrives without one still gets it, and a link to a
+ * section keeps working whichever side named it. Ids of other elements count
+ * as taken, so a heading never collides with an anchor already there.
  */
 final class AssignHeadingIds implements PipelineStep
 {

@@ -28,8 +28,8 @@ use XerAds\Laravel\Sync\Client\Exceptions\XeradsApiException;
 /**
  * XerAds' site API (`{api.url}/api/site/v1`), as this site calls it.
  *
- * Every request but pairing is signed with the site's key (sites contract,
- * "Signatures", pull): `v2.{ts}.{nonce}.{METHOD}.{request_uri}.{sha256(body)}`,
+ * Every request but pairing is signed with the site's key, the way XerAds
+ * verifies a pull: `v2.{ts}.{nonce}.{METHOD}.{request_uri}.{sha256(body)}`,
  * over the path and query exactly as sent, with a fresh nonce, so a captured
  * request can neither be replayed nor pointed at another endpoint.
  *
