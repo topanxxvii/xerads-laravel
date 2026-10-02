@@ -25,6 +25,10 @@ final class Features
             $features[] = 'articles';
         }
 
+        if ((bool) $this->config->get('xerads.modules.widgets', true)) {
+            $features[] = 'widgets';
+        }
+
         return $features;
     }
 

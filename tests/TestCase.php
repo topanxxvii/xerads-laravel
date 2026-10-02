@@ -7,6 +7,7 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Workbench\App\Models\Post;
 use XerAds\Laravel\Facades\Xerads;
@@ -34,6 +35,15 @@ abstract class TestCase extends Orchestra
 
     /** @var list<string> environment variables set for this test only */
     private static array $bootEnvironment = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Nothing in the suite may reach the network; a test that needs a
+        // response fakes it.
+        Http::preventStrayRequests();
+    }
 
     protected function tearDown(): void
     {
@@ -174,6 +184,9 @@ abstract class TestCase extends Orchestra
 
         // Log events still fire (see captureWarnings); nothing is written.
         $config->set('logging.default', 'null');
+
+        // No DNS lookups from the suite; the address rules still apply.
+        $config->set('xerads.http.verify_public_dns', false);
 
         if (self::$bootAsInstall) {
             return;

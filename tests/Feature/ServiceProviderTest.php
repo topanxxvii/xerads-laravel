@@ -33,9 +33,13 @@ it('merges a published config group by group, keeping keys it does not set', fun
 it('answers version, contract and features through the facade', function () {
     expect(Xerads::version())->toBe(Version::VERSION)
         ->and(Xerads::contract())->toBe(2)
-        ->and(Xerads::features())->toBe(['articles']);
+        ->and(Xerads::features())->toBe(['articles', 'widgets']);
 
     config(['xerads.content.mode' => 'off']);
+
+    expect(Xerads::features())->toBe(['widgets']);
+
+    config(['xerads.modules.widgets' => false]);
 
     expect(Xerads::features())->toBe([]);
 });

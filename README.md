@@ -16,13 +16,18 @@ three things:
 
 ## Status
 
-This release is the foundation: configuration, request signing, the package's
-database tables, and the original custom endpoint running on the new
-internals. Pairing a site with XerAds (contract 2), the turnkey blog, SEO and
-widget rendering arrive in later releases.
+Built so far:
 
-Until pairing is available, connect a site through the custom endpoint
-described below. Sites already set up that way keep working unchanged.
+- the original custom endpoint, on the new internals;
+- the paired webhook (contract 2): signed deliveries are verified, ordered,
+  de-duplicated and written into your own model, with SEO data kept beside it;
+- widget rendering: placeholders become widget containers, and the loader is
+  added to any page that needs it.
+
+Pairing a site from the XerAds dashboard, the turnkey blog and the SEO
+output arrive in later releases. Until pairing is available, connect a site
+through the custom endpoint, or try the paired path locally with
+`php artisan xerads:simulate` (see below).
 
 ## Requirements
 
@@ -47,6 +52,98 @@ To change settings, publish the config file:
 ```bash
 php artisan vendor:publish --tag=xerads-config
 ```
+
+Or let the package walk you through it, then check the result:
+
+```bash
+php artisan xerads:install
+php artisan xerads:doctor
+```
+
+`xerads:install` publishes the config when there is none, runs the
+migrations, and prints the lines to add to `.env` and to your layout. It never
+edits `.env` and never deletes a file. `xerads:doctor` checks everything that
+can stop a delivery (the site key, the webhook route, the tables, your model
+and its columns) and exits non-zero when something is broken; `--json` for
+scripts.
+
+## Paired deliveries (contract 2)
+
+XerAds sends every paired event to `POST /xerads/v1/webhook` (the prefix is
+`xerads.routes.prefix`). The route sits outside every middleware group: the
+`web` group's CSRF check would refuse each delivery, and the request's
+signature is its authentication. `GET /xerads/v1/status` answers publicly with
+the package version, contract and features, and nothing else.
+
+Each delivery is checked for its size (2 MB), its contract, its signature,
+its timestamp, its key and its site, then recorded in `xerads_deliveries`: a
+retry of a delivery already applied gets the original reply with
+`"duplicate": true`, and an event older than one already applied is dropped
+with `"stale": true`. An article's HTML is cleaned (an allowlist of article
+markup, no scripts, styles or iframes), its h2 and h3 get ids by the same
+rule XerAds uses, and its widget placeholders become containers. The article
+is then written into your model with the same `xerads.content.mapped`
+mapping as the custom endpoint, and its SEO data into `xerads_seo_meta`.
+
+To read the SEO data back, add the trait to your model:
+
+```php
+use XerAds\Laravel\Seo\Concerns\HasXeradsSeo;
+use XerAds\Laravel\Seo\Contracts\ProvidesSeo;
+
+class Post extends Model implements ProvidesSeo
+{
+    use HasXeradsSeo;
+}
+
+$post->xeradsSeo()?->description;
+```
+
+To try it without the dashboard, set `XERADS_SITE_KEY` to any well-formed key
+and send a signed sample article through your own HTTP kernel:
+
+```bash
+php artisan xerads:simulate                      # article.upsert, published
+php artisan xerads:simulate --status=draft
+php artisan xerads:simulate --event=ping
+php artisan xerads:simulate --fixture=article.json
+```
+
+It refuses to run in production unless given `--force`.
+
+To store articles somewhere else, bind your own
+`XerAds\Laravel\Content\Contracts\ContentReceiver`. A receiver written for
+the custom endpoint (`ArticleReceiver`) keeps receiving paired articles too.
+
+## Widgets
+
+A XerAds widget is placed in an article as
+`[xerads_widget id="w_…" lang="id"]`, or as any embed code the dashboard
+hands out; the package stores the placeholder and renders the container the
+widget runtime mounts. The runtime is always loaded from XerAds, never
+copied into your site, so new widget types need no package update.
+
+With the default `content_format` (`html`), the stored body already holds the
+containers, and `{!! $post->content !!}` is all a template needs: a
+middleware adds the loader to any page with a widget on it (never to paths in
+`xerads.widgets.inject_except`, the `admin` area by default).
+
+Otherwise, in Blade:
+
+```blade
+<x-xerads::widget id="w_k3v9q2m8x1c4b7na" lang="id" />
+<x-xerads::content :html="$post->content" :for="$post" />  {{-- content_format = shortcode --}}
+
+{{-- In the layout, just before </body> --}}
+<x-xerads::scripts />
+```
+
+`<x-xerads::scripts />` prints the loader once, only on pages that rendered a
+widget, with the page's CSP nonce when it has one. On an Inertia or Livewire
+site whose pages change without a reload, use `<x-xerads::scripts spa />`: it
+always includes the loader and asks it to look for widgets again after each
+navigation. A strict Content Security Policy must allow
+`https://widgets.xerads.id` in `script-src`, `frame-src` and `connect-src`.
 
 ## Upgrading from xerads/cms-bridge / legacy custom endpoint
 

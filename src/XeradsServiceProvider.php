@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use XerAds\CmsBridge\Contracts\ArticleReceiver;
@@ -14,6 +15,7 @@ use XerAds\CmsBridge\Http\Middleware\VerifyXerAdsSignature;
 use XerAds\CmsBridge\Receivers\EloquentArticleReceiver;
 use XerAds\Laravel\Compat\LegacyConfig;
 use XerAds\Laravel\Support\CredentialsResolver;
+use XerAds\Laravel\Support\Diagnostics;
 use XerAds\Laravel\Support\Features;
 use XerAds\Laravel\Support\Signature\V1Verifier;
 use XerAds\Laravel\Support\Signature\V2Signer;
@@ -22,6 +24,7 @@ use XerAds\Laravel\Support\StateStore;
 use XerAds\Laravel\Support\Tables;
 use XerAds\Laravel\Support\UrlGuard;
 use XerAds\Laravel\Sync\DeliveryLedger;
+use XerAds\Laravel\Widgets\WidgetExpander;
 
 /**
  * Wire the package into the host application.
@@ -47,15 +50,7 @@ final class XeradsServiceProvider extends ServiceProvider
         $this->registerSupport();
         $this->registerLegacyReceiver();
 
-        /*
-         * ── Module providers ────────────────────────────────────────────────
-         * Content, SEO, widgets and sync register here, each behind its
-         * `xerads.modules.<name>` switch:
-         *
-         *     if ($this->app->make('config')->get('xerads.modules.content')) {
-         *         $this->app->register(Content\ContentServiceProvider::class);
-         *     }
-         */
+        $this->registerModules();
     }
 
     public function boot(): void
@@ -83,7 +78,50 @@ final class XeradsServiceProvider extends ServiceProvider
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations/core');
 
+        $this->registerViews();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\InstallCommand::class,
+                Console\DoctorCommand::class,
+                Console\SimulateCommand::class,
+            ]);
+        }
+
         $this->registerLegacyRoute();
+    }
+
+    /**
+     * Blade components and directives, always registered: a template written
+     * with `<x-xerads::content>` must keep rendering when the widgets module
+     * is turned off, and then simply prints no widgets.
+     */
+    private function registerViews(): void
+    {
+        $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'xerads');
+
+        Blade::componentNamespace('XerAds\\Laravel\\View\\Components', 'xerads');
+
+        Blade::directive('xeradsWidget', fn (string $expression): string => '<?php echo app(\\'.WidgetExpander::class.'::class)->render('.$expression.'); ?>');
+    }
+
+    /**
+     * Each part of the package behind its `xerads.modules.<name>` switch, so a
+     * part a site turned off registers no routes, middleware or listeners.
+     */
+    private function registerModules(): void
+    {
+        $modules = (array) $this->app->make('config')->get('xerads.modules', []);
+
+        foreach ([
+            'content' => Content\ContentServiceProvider::class,
+            'widgets' => Widgets\WidgetsServiceProvider::class,
+            'sync' => Sync\SyncServiceProvider::class,
+        ] as $module => $provider) {
+            if (($modules[$module] ?? true) !== false) {
+                $this->app->register($provider);
+            }
+        }
     }
 
     /**
@@ -106,6 +144,7 @@ final class XeradsServiceProvider extends ServiceProvider
         $this->app->scoped(StateStore::class);
         $this->app->scoped(DeliveryLedger::class);
         $this->app->scoped(V2Verifier::class);
+        $this->app->bind(Diagnostics::class);
 
         $this->app->scoped(CredentialsResolver::class, function (Application $app): CredentialsResolver {
             $class = $app->make('config')->get('xerads.credentials.resolver');

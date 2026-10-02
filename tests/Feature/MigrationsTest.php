@@ -78,3 +78,15 @@ it('stamps when a delivery arrived if the writer does not', function () {
 
     expect(DB::table('xerads_deliveries')->where('delivery_id', 'd-now')->value('received_at'))->not->toBeNull();
 });
+
+it('records the site and the first publish on each content map entry', function () {
+    expect(Schema::hasColumns('xerads_content_map', ['site_id', 'first_published_at']))->toBeTrue();
+});
+
+it('holds a site id as long as XerAds stores one', function () {
+    $columns = collect(Schema::getColumns('xerads_content_map'))->keyBy('name');
+
+    foreach (['remote_id', 'model_id'] as $column) {
+        expect($columns[$column]['type'])->toContain('191');
+    }
+})->skip(fn () => DB::getDriverName() === 'sqlite', 'SQLite does not keep the declared length of a text column.');

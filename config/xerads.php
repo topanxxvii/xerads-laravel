@@ -1,5 +1,13 @@
 <?php
 
+use XerAds\Laravel\Content\Pipeline\AssignHeadingIds;
+use XerAds\Laravel\Content\Pipeline\BuildToc;
+use XerAds\Laravel\Content\Pipeline\CompileWidgets;
+use XerAds\Laravel\Content\Pipeline\ComputeStats;
+use XerAds\Laravel\Content\Pipeline\DemoteHeadings;
+use XerAds\Laravel\Content\Pipeline\NormalizeWidgetPlaceholders;
+use XerAds\Laravel\Content\Pipeline\SanitizeHtml;
+
 return [
     /*
      * Which parts of the package run.
@@ -98,6 +106,13 @@ return [
     'webhook' => [
         'timestamp_tolerance' => 300,
         'delivery_retention_days' => 7,
+
+        /*
+         * The largest delivery accepted, in bytes. XerAds caps what it sends at
+         * 2 MB; anything bigger is not from XerAds and is refused before its
+         * signature is even computed.
+         */
+        'max_body_bytes' => 2 * 1024 * 1024,
     ],
 
     /* ── Where articles land ─────────────────────────────────────────────── */
@@ -109,6 +124,22 @@ return [
          * off:     no articles; SEO and widgets only.
          */
         'mode' => env('XERADS_CONTENT_MODE', 'mapped'),
+
+        /*
+         * What article HTML goes through before it is stored, in order. Each
+         * step is a small class; add your own (implementing PipelineStep) or
+         * drop one, but keep SanitizeHtml: this site is the one serving the
+         * HTML, whatever XerAds already cleaned.
+         */
+        'pipeline' => [
+            NormalizeWidgetPlaceholders::class,
+            DemoteHeadings::class,
+            SanitizeHtml::class,
+            AssignHeadingIds::class,
+            BuildToc::class,
+            ComputeStats::class,
+            CompileWidgets::class,
+        ],
 
         /*
          * A published URL is a promise to readers and search engines. Once an
@@ -153,6 +184,7 @@ return [
                 'status' => 'status',
                 'keywords' => null,
                 'excerpt' => null,
+                'headline' => null,
             ],
 
             /*
@@ -200,7 +232,14 @@ return [
             /** unpublish (keep the row, mapped draft status) or delete. */
             'on_delete' => 'unpublish',
 
-            /** html, or markdown for a site whose body column holds Markdown. */
+            /*
+             * html:      the body column receives finished HTML, widget
+             *            containers included, for a template that prints
+             *            `{!! $post->body !!}`.
+             * shortcode: the body keeps `[xerads_widget …]` placeholders, for
+             *            a template that prints `<x-xerads::content :html="$post->body" />`,
+             *            which expands them when the page renders.
+             */
             'content_format' => 'html',
         ],
     ],
@@ -308,12 +347,21 @@ return [
      * Null uses the address from the dashboard settings.
      */
     'widgets' => [
+        // Null means https://widgets.xerads.id.
         'runtime_url' => env('XERADS_WIDGETS_URL'),
+        // Null means {runtime_url}/v1/loader.js.
         'loader_url' => null,
         'fetch_documents' => true,
         'document_ttl' => 60,
         'fallback_height' => 1000,
         'inject_loader' => true,
+
+        /*
+         * Paths (and route names) the loader is never added to, matched like
+         * `$request->is()`. Back-office pages show stored bodies as text in
+         * forms and previews, and have no use for a third-party script.
+         */
+        'inject_except' => ['admin', 'admin/*'],
     ],
 
     /* ── Plumbing ────────────────────────────────────────────────────────── */
@@ -326,6 +374,16 @@ return [
     'sync' => [
         'schedule' => '*/15 * * * *',
         'stale_after_minutes' => 15,
+    ],
+
+    /*
+     * Outbound requests (widget documents now; images and the XerAds API
+     * later) refuse private and reserved addresses. The DNS half of that
+     * check can be turned off where lookups are not possible, such as an
+     * offline test run; the address rules still apply.
+     */
+    'http' => [
+        'verify_public_dns' => env('XERADS_VERIFY_PUBLIC_DNS', true),
     ],
 
     /** Null uses the application's defaults. */

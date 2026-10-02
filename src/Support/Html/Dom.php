@@ -88,4 +88,31 @@ final class Dom
     {
         return $this->html5->saveHTML($this->root->childNodes);
     }
+
+    /**
+     * Give an element another tag name, keeping its attributes and children.
+     * DOM has no rename, so this builds the new element and swaps it in.
+     */
+    public function rename(DOMElement $element, string $tag): DOMElement
+    {
+        $renamed = $this->document->createElement($tag);
+
+        foreach (iterator_to_array($element->attributes) as $attribute) {
+            $renamed->setAttribute($attribute->name, $attribute->value);
+        }
+
+        while ($element->firstChild !== null) {
+            $renamed->appendChild($element->firstChild);
+        }
+
+        $element->parentNode?->replaceChild($renamed, $element);
+
+        return $renamed;
+    }
+
+    /** An element's text as a reader sees it: whitespace runs collapsed. */
+    public static function text(\DOMNode $node): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', (string) $node->textContent));
+    }
 }

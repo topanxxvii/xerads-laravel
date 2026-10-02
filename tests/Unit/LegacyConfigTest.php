@@ -52,6 +52,7 @@ it('copies a published legacy config file onto the new keys and selects mapped m
         'status' => null,
         'keywords' => null,
         'excerpt' => null,
+        'headline' => null,
     ]);
 });
 
