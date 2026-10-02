@@ -15,9 +15,12 @@ composer require xerads/cms-bridge
 
 ```dotenv
 XERADS_CMS_SECRET=the-secret-token-from-the-connection
-XERADS_CMS_MODEL="\App\Models\Post"
+XERADS_CMS_MODEL=App\Models\Post
 XERADS_CMS_PUBLIC_ROUTE=posts.show
 ```
+
+Leave the model class unquoted. Inside double quotes `\A` is an escape sequence
+the `.env` parser does not know, and the whole file fails to load.
 
 Then in XerAds → **CMS Connections** → **Custom**:
 
@@ -73,9 +76,15 @@ class MyReceiver implements ArticleReceiver
 {
     public function receive(IncomingArticle $article): array
     {
-        $post = Post::updateOrCreate(['xerads_id' => $article->remoteId], [...]);
+        // remoteId is the id YOU returned last time, echoed back. Look the
+        // post up by your own key; there is no XerAds id to store.
+        $post = ($article->remoteId !== null ? Post::find($article->remoteId) : null) ?? new Post;
+        $post->fill([...])->save();
 
-        return ['id' => $post->id, 'url' => route('posts.show', $post)];
+        return [
+            'id' => $post->id,
+            'url' => $post->is_published ? route('posts.show', $post) : null,
+        ];
     }
 }
 ```
@@ -88,9 +97,10 @@ Return `id` and `url`. Both are optional; both are worth returning.
 what makes a re-sync edit the post instead of publishing a second copy. This is
 the single most common way an integration like this goes wrong.
 
-**`url`** becomes the article's public link in XerAds — what "View live" opens
-and what gets submitted to Google Indexing. Returning `null` is honest if you do
-not have one; XerAds records nothing rather than linking somewhere that 404s.
+**`url`** becomes the article's public link in XerAds: what "View live" opens,
+and the address later articles use when they link to this one. Return it only
+once the post is public. Returning `null` for a draft is honest; XerAds keeps
+the link it already had rather than recording one that 404s.
 
 ## How requests are verified
 
