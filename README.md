@@ -24,10 +24,12 @@ Built so far:
 - widget rendering: placeholders become widget containers, and the loader is
   added to any page that needs it;
 - pairing and sync: `xerads:pair` connects the site, and its SEO settings and
-  redirects are kept current (stored as data for now).
+  redirects are kept current (stored as data for now);
+- the turnkey blog: `/blog` with categories, tags and signed previews, its
+  images copied onto the site's own disk.
 
-The turnkey blog, and the head tags, sitemap, robots.txt and redirects built
-from those settings, arrive in later releases.
+The head tags, sitemap, robots.txt and redirects built from those settings
+arrive in later releases.
 
 ## Requirements
 
@@ -144,6 +146,61 @@ It refuses to run in production unless given `--force`.
 To store articles somewhere else, bind your own
 `XerAds\Laravel\Content\Contracts\ContentReceiver`. A receiver written for
 the custom endpoint (`ArticleReceiver`) keeps receiving paired articles too.
+
+## Turnkey blog
+
+With `XERADS_CONTENT_MODE=turnkey`, the package keeps the blog itself:
+articles, categories and tags in its own tables, served at
+
+| Address | Page |
+| --- | --- |
+| `/blog` | published articles, newest first, 12 a page |
+| `/blog/{slug}` | an article |
+| `/blog/category/{slug}`, `/blog/tag/{slug}` | a category's or a tag's articles |
+| `/blog/preview/{id}?signature=…` | any article, whatever its status, for XerAds to open a draft |
+
+```bash
+php artisan xerads:install --mode=turnkey   # publishes the blog's migrations, then migrates
+php artisan storage:link                    # article images are copied to the public disk
+```
+
+The prefix is `XERADS_BLOG_PREFIX`. Pages print the article's headline as
+their only H1, the body with its widgets, a table of contents, and plain
+semantic markup with a few overridable styles. They use the package's own
+layout, a complete page; set `xerads.content.turnkey.layout` (and `section`)
+to show the blog inside yours, or publish the views to change the markup:
+
+```bash
+php artisan vendor:publish --tag=xerads-views
+```
+
+The `<head>` holds a `<title>` for now; the layout's `@stack('xerads-head')`
+is where the SEO release puts the rest.
+
+How articles behave:
+
+- **Slugs** are unique, and follow XerAds until the article is first
+  published. After that the address stays, so a retitled article keeps its
+  links (`content.slug.freeze_after_publish`). With freezing off, the article
+  moves and its old address answers 301.
+- **A draft** answers 404. Its signed preview link, which XerAds stores from
+  the reply, shows it with `noindex`. The link does not expire and stops
+  working once the article is deleted.
+- **Unpublished** articles answer 404; **deleted** ones are soft-deleted and
+  their address answers 410. Publishing the article again brings it back.
+- **Images** are copied onto `XERADS_MEDIA_DISK` by a queued job
+  (`xerads.queue.*`; with the `sync` queue driver, after the webhook has
+  answered): https addresses only, JPEG, PNG, WebP, GIF or AVIF up to 10 MB,
+  each address once. Until then pages show XerAds' address; after, the copy,
+  so regenerating an image in XerAds never breaks a live page. Mapped sites
+  get the same, in the mapped image and content columns.
+
+The blog's routes are registered after your own, so a route of yours under
+the prefix (`/blog/feed`, `/blog/search`) wins over `/blog/{slug}`, with or
+without `route:cache`, and no article is given a slug such a route answers.
+
+`php artisan xerads:simulate` sends a sample article to the blog on a
+turnkey site; `--mode=mapped` sends it to your mapped model instead.
 
 ## Widgets
 

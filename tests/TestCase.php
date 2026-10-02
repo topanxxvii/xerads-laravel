@@ -39,12 +39,22 @@ abstract class TestCase extends Orchestra
     /** @var list<string> environment variables set for this test only */
     private static array $bootEnvironment = [];
 
+    /** @var list<class-string> providers booted after the package's, like a site's own */
+    private static array $bootProviders = [];
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Nothing in the suite may reach the network; a test that needs a
-        // response fakes it.
+        $this->keepOffTheNetwork();
+    }
+
+    /**
+     * Nothing in the suite may reach the network; a test that needs a
+     * response fakes it.
+     */
+    private function keepOffTheNetwork(): void
+    {
         Http::preventStrayRequests();
 
         // Pairing is sent with a Guzzle client of its own, which
@@ -53,6 +63,32 @@ abstract class TestCase extends Orchestra
         $this->app->instance(PairingClientFactory::class, new PairingClientFactory(function (RequestInterface $request): never {
             throw new RuntimeException('A pairing request to '.$request->getUri().' was not faked. Call fakeXerads() first.');
         }));
+    }
+
+    /**
+     * Rebuild the application as a turnkey site: the mode is read when the
+     * package boots (the blog's routes and migrations), as on a real site.
+     * The rebuilt app is migrated, the blog's tables included.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  list<class-string>  $providers  booted after the package's, as a site's own are
+     */
+    protected function bootTurnkey(array $config = [], array $providers = []): void
+    {
+        self::$bootConfig = ['xerads.content.mode' => 'turnkey'] + $config;
+        self::$bootProviders = $providers;
+
+        $this->refreshApplication();
+        $this->keepOffTheNetwork();
+
+        Artisan::call('migrate', [
+            '--path' => [
+                __DIR__.'/../database/migrations/core',
+                __DIR__.'/../database/migrations/turnkey',
+                __DIR__.'/../workbench/database/migrations',
+            ],
+            '--realpath' => true,
+        ]);
     }
 
     protected function tearDown(): void
@@ -64,6 +100,7 @@ abstract class TestCase extends Orchestra
         self::$bootConfig = [];
         self::$bootAsInstall = false;
         self::$bootEnvironment = [];
+        self::$bootProviders = [];
 
         parent::tearDown();
     }
@@ -174,7 +211,7 @@ abstract class TestCase extends Orchestra
             }
         }
 
-        return [XeradsServiceProvider::class];
+        return [XeradsServiceProvider::class, ...self::$bootProviders];
     }
 
     protected function getPackageAliases($app): array
@@ -197,6 +234,9 @@ abstract class TestCase extends Orchestra
 
         // No DNS lookups from the suite; the address rules still apply.
         $config->set('xerads.http.verify_public_dns', false);
+
+        // Images are copied only where a test asks for it (MediaMirrorTest).
+        $config->set('xerads.media.mirror', false);
 
         if (self::$bootAsInstall) {
             return;

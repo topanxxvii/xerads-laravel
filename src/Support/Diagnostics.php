@@ -136,7 +136,13 @@ final class Diagnostics
     {
         $missing = [];
 
-        foreach (['state', 'deliveries', 'content_map', 'seo_meta', 'media', 'redirects'] as $table) {
+        $tables = ['state', 'deliveries', 'content_map', 'seo_meta', 'media', 'redirects'];
+
+        if ($this->config->get('xerads.content.mode') === 'turnkey') {
+            array_push($tables, 'articles', 'categories', 'tags', 'article_category', 'article_tag');
+        }
+
+        foreach ($tables as $table) {
             if (! $this->tables->exists($table)) {
                 $missing[] = $this->tables->name($table);
             }

@@ -1,0 +1,17 @@
+{{-- A tag's published articles. --}}
+@extends(config('xerads.content.turnkey.layout', 'xerads::layouts.blog'))
+
+@section('title', $articles->currentPage() > 1 ? __('xerads::blog.page_title', ['title' => $tag->name, 'page' => $articles->currentPage()]) : $tag->name)
+
+@section(config('xerads.content.turnkey.section', 'content'))
+    <div class="xerads-tag">
+        <p class="xerads-meta">{{ __('xerads::blog.tags') }}</p>
+        <h1>{{ $tag->name }}</h1>
+
+        @if ($tag->description)
+            <p>{{ $tag->description }}</p>
+        @endif
+
+        @include('xerads::blog.partials.list', ['articles' => $articles])
+    </div>
+@endsection

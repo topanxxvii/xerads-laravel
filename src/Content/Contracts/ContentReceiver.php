@@ -11,7 +11,7 @@ use XerAds\Laravel\Content\Data\Receipt;
  * Where paired (contract 2) deliveries are stored.
  *
  * The package ships three: EloquentMappedReceiver writes into a model the
- * site already has, TurnkeyReceiver will own a blog of its own, and
+ * site already has, TurnkeyReceiver keeps a blog of its own, and
  * LegacyReceiverAdapter hands articles to an `ArticleReceiver` a site wrote
  * for the original endpoint. Bind your own in AppServiceProvider to store
  * articles anywhere else; the signature checks, ordering, duplicate handling

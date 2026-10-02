@@ -151,12 +151,22 @@ return [
         /*
          * A published URL is a promise to readers and search engines. Once an
          * article has been public its slug stays, even when the title is
-         * edited in XerAds.
+         * edited in XerAds. Turned off, a turnkey article follows XerAds' new
+         * slug and its old address answers 301 to the new one.
          */
         'slug' => [
             'freeze_after_publish' => true,
         ],
 
+        /*
+         * The blog the package serves in turnkey mode: /blog, /blog/{slug},
+         * /blog/category/{slug} and /blog/tag/{slug}, under `prefix`.
+         *
+         * Pages extend `layout` and fill its `section` (and `title`), so the
+         * blog can wear the site's own layout; the default is a complete page
+         * of its own. Publish the views with
+         * `php artisan vendor:publish --tag=xerads-views` to change the markup.
+         */
         'turnkey' => [
             'prefix' => env('XERADS_BLOG_PREFIX', 'blog'),
             'middleware' => ['web'],
@@ -264,7 +274,11 @@ return [
     /*
      * Copy article images onto this site's own disk. XerAds replaces an image
      * file when it is regenerated, so a page that hot-links the original
-     * breaks the day someone presses "regenerate".
+     * breaks the day someone presses "regenerate". Copies run after the
+     * webhook has answered, on the queue (`queue` below); pages show XerAds'
+     * address until they are done.
+     * Only JPEG, PNG, WebP, GIF and AVIF files up to `max_bytes` are copied,
+     * to `{disk}:{path}/{year}/{month}/`.
      */
     'media' => [
         'mirror' => true,
@@ -408,7 +422,11 @@ return [
         'verify_public_dns' => env('XERADS_VERIFY_PUBLIC_DNS', true),
     ],
 
-    /** Null uses the application's defaults. */
+    /*
+     * Where the package's jobs (copying article images) are queued. Null
+     * uses the application's defaults. With the `sync` driver there is no
+     * worker, and they run after the response instead.
+     */
     'queue' => [
         'connection' => null,
         'queue' => null,

@@ -11,6 +11,9 @@ beforeEach(function () {
 
     $this->public = scratchDirectory('public');
     app()->usePublicPath($this->public);
+
+    $this->database = scratchDirectory('database');
+    app()->useDatabasePath($this->database);
 });
 
 it('walks through the setup and prints what to add', function () {
@@ -35,9 +38,13 @@ it('asks for the mode when none is given', function () {
         ->expectsChoice('How should articles be stored?', 'turnkey', [
             'mapped', 'turnkey', 'In a model this site already has (a Post model)', 'In a blog the package provides',
         ])
-        ->expectsOutputToContain('Turnkey mode arrives in a later release')
+        ->expectsOutputToContain('Published database/migrations/2026_10_04_000001_create_xerads_blog_tables.php.')
         ->expectsOutputToContain('XERADS_CONTENT_MODE=turnkey')
+        ->expectsOutputToContain('php artisan vendor:publish --tag=xerads-views')
         ->assertSuccessful();
+
+    // So `migrate` creates the blog's tables before .env says turnkey.
+    expect(file_exists($this->database.'/migrations/2026_10_04_000001_create_xerads_blog_tables.php'))->toBeTrue();
 });
 
 it('refuses an unknown mode', function () {

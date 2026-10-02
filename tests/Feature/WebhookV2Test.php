@@ -298,13 +298,13 @@ it('refuses an upsert without an article id', function () {
         ->assertJson(['ok' => false, 'error' => 'INVALID_PAYLOAD']);
 });
 
-it('answers 422 in turnkey mode until it exists', function () {
+it('answers 422 in turnkey mode until the blog tables exist', function () {
     config(['xerads.content.mode' => 'turnkey']);
 
     deliver($this, upsertEnvelope())
         ->assertStatus(422)
         ->assertJson(['ok' => false, 'error' => 'RECEIVER_MISCONFIGURED'])
-        ->assertJsonPath('message', fn (string $message) => str_contains($message, 'later release'));
+        ->assertJsonPath('message', fn (string $message) => str_contains($message, 'php artisan migrate'));
 
     // Not remembered as done: the same delivery is processed again once fixed.
     expect(DB::table('xerads_deliveries')->value('status'))->toBe('failed');

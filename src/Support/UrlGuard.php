@@ -2,6 +2,8 @@
 
 namespace XerAds\Laravel\Support;
 
+use Closure;
+
 /**
  * SSRF guard for every request this package sends to a URL it was given:
  * article images it mirrors, widget documents, the XerAds API address.
@@ -16,6 +18,14 @@ namespace XerAds\Laravel\Support;
  */
 final class UrlGuard
 {
+    /**
+     * `$resolver` looks a host up instead of DNS: for tests, or for a site
+     * with a resolver of its own.
+     *
+     * @param  (Closure(string): list<string>)|null  $resolver
+     */
+    public function __construct(private readonly ?Closure $resolver = null) {}
+
     /**
      * Hostnames that never resolve outside the machine or the cluster, and
      * would otherwise sail past the IP-literal check.
@@ -137,6 +147,56 @@ final class UrlGuard
         return ['reason' => null, 'addresses' => $addresses];
     }
 
+    /**
+     * A CURLOPT_RESOLVE entry that pins a request to the first address `vet()`
+     * approved, so the connection goes where the check looked, not wherever
+     * the name resolves a moment later. Null when there is nothing to pin: no
+     * addresses (DNS not consulted), a host that is already an IP literal, or
+     * no cURL to pin with.
+     *
+     * Only cURL applies it, so a pinned request must never be streamed
+     * (`stream => true`): Guzzle sends streamed requests through its stream
+     * handler, which ignores the pin (Guzzle 7) or refuses the request
+     * (Guzzle 8). Use `pinned()` to get the request options.
+     *
+     * @param  list<string>  $addresses
+     */
+    public function pin(string $url, array $addresses): ?string
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host) || $addresses === [] || filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) !== false || ! self::curlAvailable()) {
+            return null;
+        }
+
+        $port = parse_url($url, PHP_URL_PORT) ?? (strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'http' ? 80 : 443);
+        $address = $addresses[0];
+
+        return $host.':'.$port.':'.(str_contains($address, ':') ? '['.$address.']' : $address);
+    }
+
+    /**
+     * The Guzzle request options that pin a request (see `pin()`), or none.
+     *
+     * @param  list<string>  $addresses
+     * @return array{curl?: array<int, mixed>}
+     */
+    public function pinned(string $url, array $addresses): array
+    {
+        $pin = $this->pin($url, $addresses);
+
+        return $pin !== null ? ['curl' => [CURLOPT_RESOLVE => [$pin]]] : [];
+    }
+
+    /**
+     * Does Guzzle send requests through cURL here? It does whenever the
+     * extension is loaded, and only cURL takes `curl` options.
+     */
+    public static function curlAvailable(): bool
+    {
+        return \function_exists('curl_exec') && \function_exists('curl_multi_exec') && \defined('CURLOPT_RESOLVE');
+    }
+
     public function isPublicIp(string $address): bool
     {
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) === false) {
@@ -155,6 +215,10 @@ final class UrlGuard
     /** @return list<string> */
     private function resolve(string $host): array
     {
+        if ($this->resolver !== null) {
+            return array_values(array_unique(($this->resolver)($host)));
+        }
+
         $addresses = gethostbynamel($host);
         $addresses = is_array($addresses) ? $addresses : [];
 

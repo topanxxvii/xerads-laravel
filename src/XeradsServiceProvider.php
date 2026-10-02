@@ -74,9 +74,24 @@ final class XeradsServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations/core' => $this->app->databasePath('migrations'),
             ], 'xerads-migrations');
+
+            // The blog's tables, for `xerads:install --mode=turnkey`: published,
+            // they run whatever the mode is when `migrate` runs.
+            $this->publishes([
+                __DIR__.'/../database/migrations/turnkey' => $this->app->databasePath('migrations'),
+            ], 'xerads-turnkey-migrations');
+
+            $this->publishes([
+                __DIR__.'/../resources/views' => $this->app->resourcePath('views/vendor/xerads'),
+            ], 'xerads-views');
         }
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations/core');
+
+        // Only a turnkey site gets the blog's tables.
+        if ($this->app->make('config')->get('xerads.content.mode') === 'turnkey') {
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations/turnkey');
+        }
 
         $this->registerViews();
 
@@ -95,13 +110,16 @@ final class XeradsServiceProvider extends ServiceProvider
     }
 
     /**
-     * Blade components and directives, always registered: a template written
-     * with `<x-xerads::content>` must keep rendering when the widgets module
-     * is turned off, and then simply prints no widgets.
+     * Blade components, directives, views and translations, always
+     * registered: a template written with `<x-xerads::content>` must keep
+     * rendering when the widgets module is turned off, and then simply prints
+     * no widgets. The blog's views can be published (`--tag=xerads-views`)
+     * and edited in resources/views/vendor/xerads.
      */
     private function registerViews(): void
     {
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'xerads');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'xerads');
 
         Blade::componentNamespace('XerAds\\Laravel\\View\\Components', 'xerads');
 

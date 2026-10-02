@@ -78,9 +78,8 @@ final class XeradsClient
     public function pair(array $body): array
     {
         $url = $this->baseUrl().'/pair';
-        $pinned = $this->vet($url);
 
-        $options = [
+        $options = $this->vet($url) + [
             'timeout' => $this->timeout(),
             'connect_timeout' => $this->connectTimeout(),
             'allow_redirects' => false,
@@ -92,10 +91,6 @@ final class XeradsClient
             ],
             'body' => $this->encode($body),
         ];
-
-        if ($pinned !== null) {
-            $options['curl'] = [CURLOPT_RESOLVE => [$pinned]];
-        }
 
         try {
             $response = new Response($this->pairingClients->make()->request('POST', $url, $options));
@@ -233,13 +228,8 @@ final class XeradsClient
             ->connectTimeout($this->connectTimeout())
             ->withoutRedirecting()
             ->acceptJson()
-            ->withUserAgent($this->userAgent());
-
-        $pinned = $this->vet($url);
-
-        if ($pinned !== null) {
-            $request = $request->withOptions(['curl' => [CURLOPT_RESOLVE => [$pinned]]]);
-        }
+            ->withUserAgent($this->userAgent())
+            ->withOptions($this->vet($url));
 
         try {
             return $send($request);
@@ -268,12 +258,14 @@ final class XeradsClient
      * the address that was checked. A local XerAds (development only) is
      * allowed with `xerads.api.allow_private_hosts`, never in production.
      *
-     * @return string|null a CURLOPT_RESOLVE entry, or null when not pinning
+     * Never streamed: only cURL applies the pin (see UrlGuard::pin()).
+     *
+     * @return array{curl?: array<int, mixed>} the request options that pin it
      */
-    private function vet(string $url): ?string
+    private function vet(string $url): array
     {
         if ($this->config->get('xerads.api.allow_private_hosts', false) && ! $this->app->isProduction()) {
-            return null;
+            return [];
         }
 
         $vetted = $this->guard->vet($url, requireHttps: true, verifyDns: (bool) $this->config->get('xerads.http.verify_public_dns', true));
@@ -282,15 +274,7 @@ final class XeradsClient
             throw new ApiUnavailable('The XerAds API address (xerads.api.url) was refused: '.$vetted['reason']);
         }
 
-        $host = (string) parse_url($url, PHP_URL_HOST);
-
-        if ($vetted['addresses'] === [] || filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) !== false) {
-            return null;
-        }
-
-        $address = $vetted['addresses'][0];
-
-        return $host.':'.(parse_url($url, PHP_URL_PORT) ?? 443).':'.(str_contains($address, ':') ? '['.$address.']' : $address);
+        return $this->guard->pinned($url, $vetted['addresses']);
     }
 
     /** The typed exception for a refusal, from XerAds' `{error, message}`. */

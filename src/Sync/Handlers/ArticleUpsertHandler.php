@@ -2,6 +2,7 @@
 
 namespace XerAds\Laravel\Sync\Handlers;
 
+use Illuminate\Contracts\Config\Repository;
 use XerAds\Laravel\Content\Contracts\ContentReceiver;
 use XerAds\Laravel\Content\Data\ArticlePayload;
 use XerAds\Laravel\Content\Data\DeliveryContext;
@@ -9,6 +10,8 @@ use XerAds\Laravel\Content\Data\Receipt;
 use XerAds\Laravel\Content\Events\ArticlePublished;
 use XerAds\Laravel\Content\Events\ArticleReceived;
 use XerAds\Laravel\Content\Events\ArticleUnpublished;
+use XerAds\Laravel\Content\Media\Jobs\MirrorArticleMedia;
+use XerAds\Laravel\Content\Media\MediaMirror;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
 use XerAds\Laravel\Content\Pipeline\ContentPipeline;
 use XerAds\Laravel\Support\Tables;
@@ -33,6 +36,8 @@ use XerAds\Laravel\Sync\WebhookReply;
  *    transaction, so neither exists without the other.
  * 5. Only then tell listeners, so none acts on a row that was rolled back;
  *    a listener that fails is reported, and the delivery still succeeds.
+ * 6. Copy the article's images to this site, on the queue (or after the
+ *    response, without a worker).
  */
 final class ArticleUpsertHandler implements EventHandler
 {
@@ -43,6 +48,8 @@ final class ArticleUpsertHandler implements EventHandler
         private readonly ArticleReplies $replies,
         private readonly Tables $tables,
         private readonly Announcer $announcer,
+        private readonly MediaMirror $media,
+        private readonly Repository $config,
     ) {}
 
     public function handle(Envelope $envelope): WebhookReply
@@ -81,6 +88,12 @@ final class ArticleUpsertHandler implements EventHandler
             });
 
             $this->announce($article, $receipt, $wasPublished);
+
+            // Images are copied by a job, from the stored row; a status-only
+            // change stored no new image addresses.
+            if ($receipt->model !== null && (! $context->statusOnly || $receipt->created) && $this->media->enabled()) {
+                MirrorArticleMedia::dispatchFor($article->xeradsId, $this->config);
+            }
 
             return $this->replies->reply($receipt, $envelope->sequence, $article->revision, $receipt->created ? 201 : 200);
         });

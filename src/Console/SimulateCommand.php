@@ -33,6 +33,7 @@ final class SimulateCommand extends Command
         {--event=article.upsert : The event to send}
         {--fixture= : A JSON file holding an envelope or an article (default: a sample article)}
         {--status=publish : draft or publish, for article.upsert}
+        {--mode= : Store the article as this content mode does (turnkey or mapped), whatever XERADS_CONTENT_MODE says}
         {--force : Run in production, or over an article XerAds delivered for real}';
 
     protected $description = 'Send a signed XerAds delivery to this site';
@@ -41,6 +42,22 @@ final class SimulateCommand extends Command
     {
         if ($this->laravel->environment('production') && ! $this->option('force')) {
             $this->error('This writes real articles. Refusing to run in production without --force.');
+
+            return self::FAILURE;
+        }
+
+        $mode = $this->option('mode');
+
+        if ($mode !== null && ! in_array($mode, ['turnkey', 'mapped'], true)) {
+            $this->error('The mode is turnkey or mapped.');
+
+            return self::INVALID;
+        }
+
+        // The blog's pages exist only in an application booted in turnkey
+        // mode; an article stored without them has no address to report.
+        if ($mode === 'turnkey' && ! $this->laravel->make('router')->has('xerads.blog.show')) {
+            $this->error('The blog\'s routes are registered only when the application boots in turnkey mode. Set XERADS_CONTENT_MODE=turnkey (then `php artisan config:clear`), and run this again.');
 
             return self::FAILURE;
         }
@@ -112,8 +129,21 @@ final class SimulateCommand extends Command
             'HTTP_X_XERADS_SIGNATURE' => $signer->push($current->secret(), $timestamp, $deliveryId, $body),
         ], content: $body);
 
-        $response = $kernel->handle($request);
-        $kernel->terminate($request, $response);
+        // For this one delivery only: the receiver is chosen per delivery.
+        $configuredMode = config('xerads.content.mode');
+
+        if (is_string($mode)) {
+            config(['xerads.content.mode' => $mode]);
+        }
+
+        try {
+            // Not terminated here: what runs after a response (copying
+            // images, a settings refresh) runs once, when this command ends.
+            // Terminating the HTTP kernel too would run it twice.
+            $response = $kernel->handle($request);
+        } finally {
+            config(['xerads.content.mode' => $configuredMode]);
+        }
 
         $reply = json_decode((string) $response->getContent(), true);
 

@@ -36,11 +36,11 @@ final class InstallCommand extends Command
             return self::INVALID;
         }
 
-        if ($mode === 'turnkey') {
-            $this->warn('Turnkey mode arrives in a later release. Until then a turnkey site refuses articles with a message in XerAds; choose mapped to store them in your own model now.');
-        }
-
         $this->publishConfig();
+
+        if ($mode === 'turnkey') {
+            $this->publishTurnkeyMigrations();
+        }
 
         if (! $this->option('no-migrate')) {
             $this->call('migrate', $this->option('force') ? ['--force' => true] : []);
@@ -55,8 +55,21 @@ final class InstallCommand extends Command
         if ($mode === 'mapped') {
             $this->line('  XERADS_CONTENT_MODEL=App\\Models\\Post');
             $this->line('  XERADS_CONTENT_ROUTE=posts.show');
+            $this->printMappedSnippets();
+        } else {
+            $this->line('  XERADS_BLOG_PREFIX=blog   (optional; the blog is served at /blog)');
+            $this->newLine();
+            $this->info('The blog has its own layout. To show it inside yours, set xerads.content.turnkey.layout,');
+            $this->line('or publish the views to edit them: php artisan vendor:publish --tag=xerads-views');
+            $this->newLine();
         }
+        $this->line('Then run `php artisan xerads:doctor`.');
 
+        return self::SUCCESS;
+    }
+
+    private function printMappedSnippets(): void
+    {
         $this->newLine();
         $this->info('In your layout, just before </body>:');
         $this->line('  <x-xerads::scripts />');
@@ -66,9 +79,30 @@ final class InstallCommand extends Command
         $this->line('  {!! $post->content !!}                                   (content_format = html, the default)');
         $this->line('  <x-xerads::content :html="$post->content" :for="$post" /> (content_format = shortcode)');
         $this->newLine();
-        $this->line('Then run `php artisan xerads:doctor`.');
+    }
 
-        return self::SUCCESS;
+    /**
+     * Copied into database/migrations, so the migration below creates the
+     * blog's tables even before XERADS_CONTENT_MODE=turnkey is in .env.
+     * Under the same file names, which the migrator recognises as the
+     * package's own once the mode loads them too.
+     */
+    private function publishTurnkeyMigrations(): void
+    {
+        $target = $this->laravel->databasePath('migrations');
+
+        if (! is_dir($target)) {
+            mkdir($target, 0755, true);
+        }
+
+        foreach (glob(__DIR__.'/../../database/migrations/turnkey/*.php') ?: [] as $migration) {
+            $destination = $target.'/'.basename($migration);
+
+            if (! file_exists($destination)) {
+                copy($migration, $destination);
+                $this->line('Published database/migrations/'.basename($migration).'.');
+            }
+        }
     }
 
     private function publishConfig(): void

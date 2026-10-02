@@ -1,7 +1,12 @@
 <?php
 
+use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Workbench\App\Models\Post;
+use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
 
 beforeEach(function () {
@@ -115,4 +120,68 @@ it('leaves an article XerAds delivered for real alone, unless forced, and never 
         ->assertJsonMissingPath('stale');
 
     expect(Post::sole()->status)->toBe('published');
+});
+
+it('writes a turnkey article on a turnkey site', function () {
+    $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()]);
+
+    [$code, $output] = simulate();
+
+    expect($code)->toBe(0)
+        ->and($output)->toContain('"state": "published"')
+        ->and($output)->toContain('"url": "http://localhost/blog/panduan-kpr-2026"')
+        ->and(Article::sole()->title)->toBe('Panduan KPR 2026');
+
+    $this->get('/blog/panduan-kpr-2026')->assertOk();
+});
+
+it('writes into the mapped model with --mode=mapped, for that delivery only', function () {
+    $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()]);
+
+    [$code, $output] = simulate(['--mode' => 'mapped']);
+
+    expect($code)->toBe(0)
+        ->and($output)->toContain('"url": "http://localhost/posts/panduan-kpr-2026"')
+        ->and(Post::sole()->title)->toBe('Panduan KPR 2026')
+        ->and(Article::count())->toBe(0)
+        ->and(config('xerads.content.mode'))->toBe('turnkey');
+});
+
+it('says --mode=turnkey needs an application booted in turnkey mode, and writes nothing', function () {
+    [$code, $output] = simulate(['--mode' => 'turnkey']);
+
+    expect($code)->toBe(1)
+        ->and($output)->toContain('registered only when the application boots in turnkey mode')
+        ->and($output)->not->toContain('/blog/')
+        ->and(ContentMapEntry::count())->toBe(0)
+        ->and(Post::count())->toBe(0);
+});
+
+it('runs what follows the response once, when the command ends', function () {
+    $this->bootTurnkey(['xerads.credentials.key' => testSiteKey(), 'xerads.media.mirror' => true]);
+    Storage::fake('public', ['url' => 'http://localhost/storage']);
+    Http::fake(['*' => fn () => Http::response((string) base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), 200)]);
+
+    $copies = new ArrayObject;
+    Event::listen(JobProcessed::class, function (JobProcessed $event) use ($copies) {
+        if (str_contains((string) $event->job->resolveName(), 'MirrorArticleMedia')) {
+            $copies[] = true;
+        }
+    });
+
+    simulate();
+
+    expect($copies)->toHaveCount(0);
+
+    // As the console kernel does when the command ends.
+    app()->terminate();
+
+    expect($copies)->toHaveCount(1)
+        ->and(Article::sole()->featured_image_url)->toStartWith('http://localhost/storage/');
+});
+
+it('refuses an unknown --mode', function () {
+    [$code] = simulate(['--mode' => 'headless']);
+
+    expect($code)->toBe(2);
 });

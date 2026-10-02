@@ -95,13 +95,9 @@ final class DocumentCache
                 ->withoutRedirecting()
                 ->acceptJson();
 
-            $pinned = $this->pin($url, $vetted['addresses']);
-
-            if ($pinned !== null) {
-                // Connect to the address that was checked, not whatever the
-                // name resolves to a moment later.
-                $request = $request->withOptions(['curl' => [CURLOPT_RESOLVE => [$pinned]]]);
-            }
+            // Connect to the address that was checked, not whatever the name
+            // resolves to a moment later.
+            $request = $request->withOptions($this->guard->pinned($url, $vetted['addresses']));
 
             $response = $request->get($url);
         } catch (Throwable) {
@@ -119,21 +115,6 @@ final class DocumentCache
         $height = data_get($response->json(), 'layout.min_height.mobile');
 
         return is_int($height) && $height > 0 && $height <= 10_000 ? $height : null;
-    }
-
-    /** @param  list<string>  $addresses */
-    private function pin(string $url, array $addresses): ?string
-    {
-        $host = parse_url($url, PHP_URL_HOST);
-
-        if (! is_string($host) || $addresses === [] || filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) !== false) {
-            return null;
-        }
-
-        $port = parse_url($url, PHP_URL_PORT) ?? 443;
-        $address = $addresses[0];
-
-        return $host.':'.$port.':'.(str_contains($address, ':') ? '['.$address.']' : $address);
     }
 
     private function key(string $id): string
