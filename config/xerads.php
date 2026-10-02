@@ -444,8 +444,8 @@ return [
     ],
 
     /*
-     * Outbound requests (widget documents now; images and the XerAds API
-     * later) refuse private and reserved addresses. The DNS half of that
+     * Outbound requests (widget documents, article images, IndexNow and the
+     * XerAds API) refuse private and reserved addresses. The DNS half of that
      * check can be turned off where lookups are not possible, such as an
      * offline test run; the address rules still apply.
      */
@@ -454,9 +454,10 @@ return [
     ],
 
     /*
-     * Where the package's jobs (copying article images) are queued. Null
-     * uses the application's defaults. With the `sync` driver there is no
-     * worker, and they run after the response instead.
+     * Where the package's jobs (copying article images, IndexNow
+     * submissions) are queued. Null uses the application's defaults. With the
+     * `sync` driver there is no worker, and they run after the response
+     * instead.
      */
     'queue' => [
         'connection' => null,

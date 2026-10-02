@@ -11,7 +11,7 @@ namespace XerAds\Laravel\Support;
  */
 final class Version
 {
-    public const VERSION = '1.0.0-dev';
+    public const VERSION = '1.0.0';
 
     /**
      * The site contract this package implements. XerAds sends only what a

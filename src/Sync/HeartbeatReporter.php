@@ -110,6 +110,8 @@ final class HeartbeatReporter
                 'robots_route_shadowed' => $shadowed['robots'],
                 'sitemap_route_shadowed' => $shadowed['sitemap'],
                 'indexnow_key_route_shadowed' => $shadowed['indexnow_key'],
+                // A route of the site's with parameters hides the turnkey blog.
+                'blog_route_shadowed' => $this->diagnostics->blogShadowedBy() !== null,
                 'storage_link' => $checks['storage_link'],
                 'queue' => $checks['queue'],
                 'app_url_https' => $checks['app_url_https'],

@@ -8,9 +8,11 @@ use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Str;
 use Throwable;
 use XerAds\Laravel\Content\ConfigurationReport;
 use XerAds\Laravel\Content\Contracts\ContentReceiver;
+use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Seo\Http\ServeSeoFiles;
 use XerAds\Laravel\Seo\IndexNow\IndexNowKey;
 
@@ -119,6 +121,39 @@ final class Diagnostics
             'sitemap' => $this->shadows('/sitemap.xml'),
             'indexnow_key' => $key !== null && $this->shadows('/'.$key.'.txt'),
         ];
+    }
+
+    /**
+     * The route of the site's that answers the turnkey blog's paths before
+     * the blog does, or null when none does (or the site is not turnkey).
+     *
+     * The blog's routes are registered after the site's own, so that a page
+     * of the site's under the prefix (`/blog/feed`) stays the site's. A route
+     * with parameters that also takes the blog's index or any article slug,
+     * such as an SPA's `/{any}` registered with `Route::get()` rather than
+     * `Route::fallback()`, hides the whole blog instead.
+     */
+    public function blogShadowedBy(): ?string
+    {
+        if ($this->config->get('xerads.content.mode') !== 'turnkey' || $this->config->get('xerads.modules.content', true) === false) {
+            return null;
+        }
+
+        $routes = $this->router->getRoutes();
+
+        foreach (['/'.Article::prefix(), Article::pathFor('xerads-'.Str::lower(Str::random(16)))] as $path) {
+            try {
+                $matched = $routes->match(Request::create($path));
+            } catch (Throwable) {
+                continue;
+            }
+
+            if (! str_starts_with((string) $matched->getName(), 'xerads.blog.') && $matched->parameterNames() !== []) {
+                return $matched->uri();
+            }
+        }
+
+        return null;
     }
 
     /** Laravel's kernel can say what global middleware it runs; the contract does not promise it. */

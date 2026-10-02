@@ -4,6 +4,7 @@ namespace XerAds\Laravel\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository;
+use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Diagnostics;
 use XerAds\Laravel\Support\InvalidSiteKey;
@@ -55,6 +56,8 @@ final class DoctorCommand extends Command
                 ? "public/{$file} exists. The web server serves it before Laravel, so the package's {$file} will never be seen. Rename it once you rely on the package's."
                 : "No static public/{$file}.");
         }
+
+        $this->checkBlogRoute($diagnostics, $config);
 
         foreach ($diagnostics->shadowedRoutes() as $path => $shadowed) {
             $name = ['robots' => '/robots.txt', 'sitemap' => '/sitemap.xml', 'indexnow_key' => 'the IndexNow key file'][$path];
@@ -158,6 +161,20 @@ final class DoctorCommand extends Command
         $this->add('widget_loader', $unloaded ? 'warn' : 'ok', $unloaded
             ? 'Stored articles hold widget containers, but xerads.widgets.inject_loader is off: put <x-xerads::scripts spa /> in the layout, or the widgets stay empty.'
             : 'Pages with widgets get the loader.');
+    }
+
+    private function checkBlogRoute(Diagnostics $diagnostics, Repository $config): void
+    {
+        if ($config->get('xerads.content.mode') !== 'turnkey') {
+            return;
+        }
+
+        $prefix = Article::prefix();
+        $route = $diagnostics->blogShadowedBy();
+
+        $this->add('blog_route', $route === null ? 'ok' : 'warn', $route === null
+            ? "The blog answers at /{$prefix}."
+            : "Your route /{$route} answers /{$prefix} and its articles before the blog, so readers never see them. Register it with Route::fallback(), or keep the prefix out of its pattern, for example ->where('any', '^(?!{$prefix}(/|\$)).*').");
     }
 
     private function add(string $check, string $status, string $message): void

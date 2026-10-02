@@ -84,3 +84,22 @@ it('shows a failing heartbeat apart from the sync', function () {
         ->and($status['sync']['failures'])->toBe(0)
         ->and($status['sync']['heartbeat_error'])->toContain('503');
 });
+
+it('reports release 1.0.0 to XerAds and in the status, and is current when XerAds says 1.0.0', function () {
+    storeTestKey();
+    fakeXerads(['heartbeat' => Http::response(heartbeatReply(['latest_plugin_version' => '1.0.0']))]);
+    Artisan::call('xerads:sync', ['--heartbeat' => true]);
+
+    $heartbeat = Http::recorded(fn ($request) => str_ends_with($request->url(), '/heartbeat'))->first()[0];
+
+    [, $json] = status(['--json' => true]);
+    [, $text] = status();
+
+    expect($heartbeat->data()['plugin_version'])->toBe('1.0.0')
+        ->and($heartbeat->header('X-XerAds-Plugin-Version'))->toBe(['1.0.0'])
+        ->and(json_decode($json, true))->toMatchArray(['version' => '1.0.0', 'latest_version' => '1.0.0', 'outdated' => false])
+        ->and($text)->toContain('Package:    1.0.0 (contract 2)')
+        ->and($text)->not->toContain('is available');
+
+    $this->get('/xerads/v1/status')->assertJsonPath('version', '1.0.0');
+});

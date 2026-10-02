@@ -133,3 +133,80 @@ it('reports nothing for a site that answers robots.txt itself, or has no catch-a
     expect(shadowedChecks())->toBe(['robots_route_shadowed' => false, 'sitemap_route_shadowed' => false, 'indexnow_key_route_shadowed' => false])
         ->and(doctorStatus('robots_route'))->toBe('ok');
 });
+
+describe('the turnkey blog behind a route of the site\'s', function () {
+    it('is reported when a catch-all takes the blog\'s paths', function () {
+        $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()], [SpaCatchAllProvider::class]);
+
+        expect(blogCheck())->toBeTrue();
+
+        Artisan::call('xerads:doctor', ['--json' => true]);
+        $report = json_decode(trim(Artisan::output()), true, flags: JSON_THROW_ON_ERROR);
+        $check = collect($report['checks'])->firstWhere('check', 'blog_route');
+
+        expect($check['status'])->toBe('warn')
+            ->and($check['message'])->toContain('Your route /{any} answers /blog')
+            ->and($check['message'])->toContain('Route::fallback()');
+    });
+
+    it('is not reported, and answers, where the catch-all leaves the blog alone', function (string $provider) {
+        $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()], [$provider]);
+        deliver($this, upsertEnvelope([], ['delivery_id' => (string) Str::ulid()]))->assertSuccessful();
+
+        expect(blogCheck())->toBeFalse()
+            ->and(doctorStatus('blog_route'))->toBe('ok');
+
+        $this->get('/blog/panduan-kpr-2026')->assertOk()->assertSee('Panduan KPR 2026');
+        $this->get('/blog')->assertOk();
+        $this->get('/tentang')->assertContent('spa');
+    })->with([
+        'registered as the fallback' => [SpaFallbackProvider::class],
+        'with the prefix kept out of its pattern' => [SpaExceptBlogProvider::class],
+    ]);
+
+    it('is not reported for a page of the site\'s own under the prefix, or a mapped site', function () {
+        $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()], [BlogFeedProvider::class]);
+
+        expect(blogCheck())->toBeFalse();
+
+        $this->bootTurnkey(['xerads.credentials.key' => testSiteKey()], [SpaCatchAllProvider::class]);
+        config(['xerads.content.mode' => 'mapped']);
+
+        expect(blogCheck())->toBeFalse()
+            ->and(doctorStatus('blog_route'))->toBeNull();
+    });
+});
+
+function blogCheck(): bool
+{
+    app()->forgetScopedInstances();
+
+    return app(HeartbeatReporter::class)->payload()['checks']['blog_route_shadowed'];
+}
+
+/** A single-page app registered the way Laravel recommends: as the fallback. */
+class SpaFallbackProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        Route::fallback(fn () => 'spa');
+    }
+}
+
+/** A catch-all that keeps the blog's prefix out of its pattern, as the doctor suggests. */
+class SpaExceptBlogProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        Route::get('{any}', fn () => 'spa')->where('any', '^(?!blog(/|$)).*');
+    }
+}
+
+/** A page of the site's own under the blog's prefix. */
+class BlogFeedProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        Route::get('blog/feed', fn () => 'feed');
+    }
+}

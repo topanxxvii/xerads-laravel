@@ -1,6 +1,6 @@
 {
     "name": "xerads/laravel",
-    "description": "Publish XerAds articles into Laravel with on-page and technical SEO and XerAds widgets.",
+    "description": "Connect a Laravel site to XerAds: receive articles into a turnkey blog or your own model, print SEO head tags and structured data, render XerAds widgets, and serve sitemaps, robots.txt, llms.txt, IndexNow and redirects.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -8,9 +8,25 @@
         "xerads",
         "seo",
         "cms",
+        "blog",
+        "articles",
         "webhook",
-        "widgets"
+        "widgets",
+        "sitemap",
+        "robots.txt",
+        "llms.txt",
+        "indexnow",
+        "redirects",
+        "json-ld",
+        "open-graph",
+        "structured-data"
     ],
+    "homepage": "https://xerads.id",
+    "support": {
+        "email": "support@xerads.id",
+        "issues": "https://xerads.id/contact",
+        "docs": "https://packagist.org/packages/xerads/laravel"
+    },
     "require": {
         "php": "^8.2",
         "ext-dom": "*",
