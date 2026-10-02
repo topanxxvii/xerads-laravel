@@ -4,11 +4,15 @@ namespace XerAds\Laravel\Support;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Throwable;
 use XerAds\Laravel\Content\ConfigurationReport;
 use XerAds\Laravel\Content\Contracts\ContentReceiver;
+use XerAds\Laravel\Seo\Http\ServeSeoFiles;
+use XerAds\Laravel\Seo\IndexNow\IndexNowKey;
 
 /**
  * What can be checked about an installation without changing it.
@@ -87,6 +91,51 @@ final class Diagnostics
         return is_file(public_path($name));
     }
 
+    /**
+     * The package's paths that a route of the site's with parameters (a
+     * `/{slug}` page route, an SPA's catch-all) answers instead, so search
+     * engines never see the package's robots.txt, sitemap or IndexNow key.
+     * Never the case while ServeSeoFiles runs: it answers these paths first.
+     *
+     * @return array{robots: bool, sitemap: bool, indexnow_key: bool}
+     */
+    public function shadowedRoutes(): array
+    {
+        $served = ($this->config->get('xerads.middleware.global', true) !== false && $this->config->get('xerads.middleware.seo_files', true) !== false)
+            || $this->kernelRuns($this->container->make(HttpKernel::class), ServeSeoFiles::class);
+
+        if ($served) {
+            return ['robots' => false, 'sitemap' => false, 'indexnow_key' => false];
+        }
+
+        try {
+            $key = $this->container->make(IndexNowKey::class)->current();
+        } catch (Throwable) {
+            $key = null;
+        }
+
+        return [
+            'robots' => $this->shadows('/robots.txt'),
+            'sitemap' => $this->shadows('/sitemap.xml'),
+            'indexnow_key' => $key !== null && $this->shadows('/'.$key.'.txt'),
+        ];
+    }
+
+    /** Laravel's kernel can say what global middleware it runs; the contract does not promise it. */
+    private function kernelRuns(object $kernel, string $middleware): bool
+    {
+        return method_exists($kernel, 'hasMiddleware') && $kernel->hasMiddleware($middleware);
+    }
+
+    private function shadows(string $path): bool
+    {
+        try {
+            return ServeSeoFiles::shadowed($this->router, Request::create($path)) !== null;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     public function webhookRoute(): ?Route
     {
         return $this->router->getRoutes()->getByName('xerads.webhook');
@@ -136,7 +185,7 @@ final class Diagnostics
     {
         $missing = [];
 
-        $tables = ['state', 'deliveries', 'content_map', 'seo_meta', 'media', 'redirects'];
+        $tables = ['state', 'deliveries', 'content_map', 'seo_meta', 'media', 'redirects', 'not_found'];
 
         if ($this->config->get('xerads.content.mode') === 'turnkey') {
             array_push($tables, 'articles', 'categories', 'tags', 'article_category', 'article_tag');

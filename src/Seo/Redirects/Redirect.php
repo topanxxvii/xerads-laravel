@@ -5,6 +5,7 @@ namespace XerAds\Laravel\Seo\Redirects;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use XerAds\Laravel\Support\Concerns\UsesXeradsTables;
+use XerAds\Laravel\Support\UrlPath;
 
 /**
  * A row of `xerads_redirects`: a path that moved (301, 302…) or is gone (410).
@@ -14,8 +15,9 @@ use XerAds\Laravel\Support\Concerns\UsesXeradsTables;
  * package's, written when a turnkey article changed its slug or was deleted.
  * The package only ever changes its own `auto` rows.
  *
- * Only exact matches are looked up here; prefix and pattern rules, and the
- * global middleware that applies them to every 404, come with the SEO module.
+ * RedirectMatcher looks rules up (exact, then the longest prefix), the
+ * HandleRedirects middleware applies them to requests the site answers 404,
+ * and RedirectSync keeps the `xerads` rows in line with the dashboard.
  *
  * @property int $id
  * @property string|null $remote_id
@@ -28,14 +30,25 @@ use XerAds\Laravel\Support\Concerns\UsesXeradsTables;
  * @property int $status
  * @property bool $preserve_query
  * @property bool $active
- * @property int $hits
- * @property Carbon|null $last_hit_at
  */
 class Redirect extends Model
 {
     use UsesXeradsTables;
 
     public const ORIGIN_AUTO = 'auto';
+
+    public const ORIGIN_XERADS = 'xerads';
+
+    public const ORIGIN_LOCAL = 'local';
+
+    /**
+     * Who wins when two rules name the same path: the site's own, then the
+     * ones managed in XerAds, then the package's automatic ones.
+     */
+    public const PRIORITY = [self::ORIGIN_LOCAL => 0, self::ORIGIN_XERADS => 1, self::ORIGIN_AUTO => 2];
+
+    /** Statuses that say "gone" and carry no target. */
+    public const GONE = [410, 451];
 
     protected $guarded = [];
 
@@ -44,16 +57,23 @@ class Redirect extends Model
         'preserve_query' => 'boolean',
         'active' => 'boolean',
         'status' => 'integer',
-        'hits' => 'integer',
-        'last_hit_at' => 'datetime',
     ];
 
-    /** `/blog/old/` and `blog/old?x=1` are both `/blog/old`. */
+    /**
+     * A rule saved or deleted through the model reaches the matcher at once.
+     * Writes through the query builder (`Redirect::query()->update()`) fire
+     * no events: call changed() after them.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::changed());
+        static::deleted(fn () => self::changed());
+    }
+
+    /** `/blog/old/` and `blog/old?x=1` are both `/blog/old`; `/promo:2025` stays itself. */
     public static function normalize(string $path): string
     {
-        $path = (string) (parse_url($path, PHP_URL_PATH) ?? '');
-
-        return '/'.trim($path, '/');
+        return '/'.trim(rawurldecode(UrlPath::of($path)), '/');
     }
 
     /**
@@ -65,7 +85,7 @@ class Redirect extends Model
         return sha1($caseInsensitive ? mb_strtolower($source) : $source);
     }
 
-    /** The active exact rule for a path, if any. */
+    /** The active exact rule for a path, if any; the highest priority one. */
     public static function forPath(string $path): ?self
     {
         $path = self::normalize($path);
@@ -76,9 +96,21 @@ class Redirect extends Model
             ->whereIn('source_hash', array_unique([self::hashOf($path), self::hashOf($path, true)]))
             ->orderBy('id')
             ->get()
-            ->first(fn (self $redirect) => $redirect->case_insensitive
+            ->filter(fn (self $redirect) => $redirect->case_insensitive
                 ? mb_strtolower($redirect->source) === mb_strtolower($path)
-                : $redirect->source === $path);
+                : $redirect->source === $path)
+            ->sortBy(fn (self $redirect) => self::PRIORITY[$redirect->origin] ?? 3)
+            ->first();
+    }
+
+    /**
+     * The rules changed: the matcher's cached copy is dropped (it moves on to
+     * a new generation, see RedirectMatcher). Saving or deleting a model
+     * calls it; a write through the query builder must call it itself.
+     */
+    public static function changed(): void
+    {
+        app(RedirectMatcher::class)->forget();
     }
 
     /**
@@ -121,6 +153,8 @@ class Redirect extends Model
             'active' => true,
         ])->save();
 
+        self::changed();
+
         return $redirect;
     }
 
@@ -142,21 +176,19 @@ class Redirect extends Model
     /** Drop the package's rule for a path that is served again. */
     public static function forgetAuto(string $source): void
     {
-        static::query()
+        $deleted = static::query()
             ->where('origin', self::ORIGIN_AUTO)
             ->where('source_hash', self::hashOf(self::normalize($source)))
             ->delete();
+
+        if ($deleted > 0) {
+            self::changed();
+        }
     }
 
     public function isGone(): bool
     {
-        return $this->status === 410 || $this->target === null || $this->target === '';
-    }
-
-    /** Counted without touching `updated_at`, which says when the rule changed. */
-    public function recordHit(): void
-    {
-        static::query()->whereKey($this->getKey())->toBase()->increment('hits', 1, ['last_hit_at' => Carbon::now()]);
+        return in_array($this->status, self::GONE, true) || $this->target === null || $this->target === '';
     }
 
     protected function xeradsTable(): string

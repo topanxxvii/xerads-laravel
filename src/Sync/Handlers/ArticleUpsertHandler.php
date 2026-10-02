@@ -14,6 +14,7 @@ use XerAds\Laravel\Content\Media\Jobs\MirrorArticleMedia;
 use XerAds\Laravel\Content\Media\MediaMirror;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
 use XerAds\Laravel\Content\Pipeline\ContentPipeline;
+use XerAds\Laravel\Seo\ContentChanges;
 use XerAds\Laravel\Support\Tables;
 use XerAds\Laravel\Sync\Announcer;
 use XerAds\Laravel\Sync\ArticleLock;
@@ -50,6 +51,7 @@ final class ArticleUpsertHandler implements EventHandler
         private readonly Announcer $announcer,
         private readonly MediaMirror $media,
         private readonly Repository $config,
+        private readonly ContentChanges $changes,
     ) {}
 
     public function handle(Envelope $envelope): WebhookReply
@@ -88,6 +90,13 @@ final class ArticleUpsertHandler implements EventHandler
             });
 
             $this->announce($article, $receipt, $wasPublished);
+
+            // The sitemap changes, and search engines hear of the address:
+            // the new one when published, the old one when it moved or went.
+            $this->changes->record(
+                $receipt->isPublished() ? $receipt->url : null,
+                $wasPublished && $previous->last_url !== $receipt->url ? $previous->last_url : null,
+            );
 
             // Images are copied by a job, from the stored row; a status-only
             // change stored no new image addresses.

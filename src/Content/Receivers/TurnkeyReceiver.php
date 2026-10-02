@@ -480,16 +480,32 @@ final class TurnkeyReceiver implements ContentReceiver
     /**
      * Does one of the site's own routes answer this path? Those are matched
      * before the blog's, so an article there would never be shown.
+     *
+     * Not when that route answers every path under the prefix (an SPA's
+     * `/{any}`): no suffix gets past it, and looking for one would never
+     * end. The whole blog is behind it then, which `xerads:doctor` reports.
      */
     private function routedElsewhere(string $path): bool
     {
+        $routes = app(Router::class)->getRoutes();
+
         try {
-            $route = app(Router::class)->getRoutes()->match(Request::create($path));
+            $route = $routes->match(Request::create($path));
         } catch (Throwable) {
             return false;
         }
 
-        return $route->getName() !== 'xerads.blog.show';
+        if ($route->getName() === 'xerads.blog.show') {
+            return false;
+        }
+
+        try {
+            $anySlug = $routes->match(Request::create(Article::pathFor('xerads-'.Str::lower(Str::random(16)))));
+        } catch (Throwable) {
+            return true;
+        }
+
+        return $anySlug->uri() !== $route->uri();
     }
 
     /**

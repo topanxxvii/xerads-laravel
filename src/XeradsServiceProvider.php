@@ -107,6 +107,7 @@ final class XeradsServiceProvider extends ServiceProvider
                 Console\PairCommand::class,
                 Console\SyncCommand::class,
                 Console\StatusCommand::class,
+                Console\PruneCommand::class,
             ]);
         }
 

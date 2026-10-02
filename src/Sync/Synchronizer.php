@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Carbon;
+use XerAds\Laravel\Seo\Redirects\RedirectSync;
 use XerAds\Laravel\Seo\SettingsRepository;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\ErrorScrubber;
@@ -56,6 +57,7 @@ final class Synchronizer
         private readonly CacheFactory $cache,
         private readonly Repository $config,
         private readonly SettingsRepository $settings,
+        private readonly RedirectSync $redirectSync,
     ) {}
 
     /** Paired, migrated, not revoked: is there anything to sync with? */
@@ -158,6 +160,10 @@ final class Synchronizer
 
                 if ($redirects) {
                     $report->redirects = $this->pull('redirects', $credentials?->siteId);
+
+                    // Into the table the redirects middleware reads, whenever
+                    // the held document is not the one applied last.
+                    $this->redirectSync->syncFromState();
                 }
             } catch (XeradsApiException $exception) {
                 $this->recordFailure($exception, heartbeat: false, refresh: true);

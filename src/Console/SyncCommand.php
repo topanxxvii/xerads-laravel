@@ -3,7 +3,7 @@
 namespace XerAds\Laravel\Console;
 
 use Illuminate\Console\Command;
-use XerAds\Laravel\Support\Tables;
+use XerAds\Laravel\Seo\NotFound\NotFoundReporter;
 use XerAds\Laravel\Sync\Client\Exceptions\XeradsApiException;
 use XerAds\Laravel\Sync\Synchronizer;
 use XerAds\Laravel\Sync\SyncReport;
@@ -27,7 +27,7 @@ final class SyncCommand extends Command
 
     protected $description = 'Sync settings and redirects with XerAds';
 
-    public function handle(Synchronizer $synchronizer, Tables $tables): int
+    public function handle(Synchronizer $synchronizer, NotFoundReporter $notFoundReporter): int
     {
         if (! $synchronizer->canSync()) {
             $this->line('Nothing to sync: this site is not paired with XerAds (or XerAds removed it). Run `php artisan xerads:pair`.');
@@ -40,18 +40,11 @@ final class SyncCommand extends Command
         $settings = $full || $this->option('settings');
         $redirects = $full || $this->option('redirects');
         $notFound = $full || $this->option('report-404');
-
-        if ($notFound) {
-            $this->line($tables->exists('not_found')
-                ? 'Reporting 404s is not enabled in this release.'
-                : '404 reports arrive with the 404 monitor in a later release; nothing to report.');
-        }
-
         $explicit = $heartbeat || $settings || $redirects;
 
-        // Only --report-404 was asked for: done above.
+        // Only --report-404 was asked for.
         if (! $explicit && $notFound) {
-            return self::SUCCESS;
+            return $this->reportNotFound($notFoundReporter, explicit: true);
         }
 
         try {
@@ -71,11 +64,39 @@ final class SyncCommand extends Command
             $this->line($explicit
                 ? 'Another sync is running; this one was skipped.'
                 : 'Nothing is due: the copy is current, or a retry is waiting out its backoff. Use --full to sync now.');
+        } else {
+            $this->describe($report);
+        }
+
+        // The routine run (the scheduler's) reports the 404s counted since.
+        if ($notFound || ! $explicit) {
+            return $this->reportNotFound($notFoundReporter, explicit: $notFound);
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function reportNotFound(NotFoundReporter $reporter, bool $explicit): int
+    {
+        if (! $reporter->enabled()) {
+            if ($explicit) {
+                $this->line('404 reporting is off (monitor_404 in the settings or xerads.monitor_404).');
+            }
 
             return self::SUCCESS;
         }
 
-        $this->describe($report);
+        try {
+            $reported = $reporter->report();
+        } catch (XeradsApiException $exception) {
+            $this->error('The 404 report failed'.($exception->errorCode !== null ? " ({$exception->errorCode})" : '').': '.$exception->getMessage());
+
+            return $explicit ? self::FAILURE : self::SUCCESS;
+        }
+
+        if ($explicit || $reported > 0) {
+            $this->line($reported > 0 ? "Reported {$reported} path(s) that answered 404." : 'No new 404s to report.');
+        }
 
         return self::SUCCESS;
     }

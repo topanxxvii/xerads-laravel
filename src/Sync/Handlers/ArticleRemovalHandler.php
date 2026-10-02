@@ -9,6 +9,7 @@ use XerAds\Laravel\Content\Data\Receipt;
 use XerAds\Laravel\Content\Events\ArticleDeleted;
 use XerAds\Laravel\Content\Events\ArticleUnpublished;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
+use XerAds\Laravel\Seo\ContentChanges;
 use XerAds\Laravel\Support\Tables;
 use XerAds\Laravel\Sync\Announcer;
 use XerAds\Laravel\Sync\ArticleLock;
@@ -33,6 +34,7 @@ abstract class ArticleRemovalHandler implements EventHandler
         private readonly ArticleReplies $replies,
         private readonly Tables $tables,
         private readonly Announcer $announcer,
+        private readonly ContentChanges $changes,
     ) {}
 
     abstract protected function remove(ArticleReference $article, DeliveryContext $context): Receipt;
@@ -73,6 +75,10 @@ abstract class ArticleRemovalHandler implements EventHandler
 
                 return $receipt;
             });
+
+            if ($wasPublished) {
+                $this->changes->record($previous->last_url);
+            }
 
             if ($receipt->state === Receipt::DELETED) {
                 $this->announcer->announce(new ArticleDeleted($article->xeradsId, $receipt));

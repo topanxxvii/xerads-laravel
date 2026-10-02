@@ -320,9 +320,22 @@ return [
     ],
 
     /*
-     * The sitemap is cached and rebuilt when content changes. A request that
-     * fails while building answers 503 rather than a partial file, because a
-     * partial sitemap tells search engines the missing URLs are gone.
+     * /sitemap.xml (an index) and /sitemaps/{source}-{page}.xml. What the
+     * settings say wins where both have a say (`sitemap.enabled`, `max_urls`,
+     * `include`, `exclude_paths`). Cached and rebuilt when content changes;
+     * changes to the site's own models show after `cache_ttl` seconds. A
+     * request that fails while building answers 503 rather than a partial
+     * file, because a partial sitemap tells search engines the missing URLs
+     * are gone.
+     *
+     * `models`: the site's own models to list, name => class, for example
+     * `['products' => App\Models\Product::class]`; each lists the rows its
+     * `scopeXeradsSitemap()` keeps, at `xeradsSitemapUrl()`. `sources`:
+     * classes implementing XerAds\Laravel\Seo\Sitemap\Contracts\SitemapSource.
+     * A name is lowercase letters a-z only and unique (`articles`,
+     * `categories` and `tags` are the package's): it becomes
+     * /sitemaps/{name}-1.xml. Any other name stops the sitemaps with an
+     * error, rather than leaving the model out unnoticed.
      */
     'sitemap' => [
         'enabled' => true,
@@ -332,8 +345,17 @@ return [
         'models' => [],
     ],
 
+    /* /robots.txt from the settings; `Disallow: /` outside production. */
     'robots_txt' => [
         'enabled' => true,
+    ],
+
+    /*
+     * /llms.txt: the site and its latest articles in Markdown for language
+     * models. Null follows `llms_txt.enabled` in the settings (off by default).
+     */
+    'llms_txt' => [
+        'enabled' => null,
     ],
 
     /*
@@ -458,11 +480,23 @@ return [
     ],
 
     /*
-     * Redirects, the 404 monitor and the X-Robots-Tag header run as global
-     * middleware. Off turns them all off, for a site that wires them into its
-     * own stack.
+     * Redirects, the package's SEO files, the 404 monitor and the
+     * X-Robots-Tag header run as global middleware. `global` off turns them
+     * all off, for a site that wires them into its own stack; each can be
+     * turned off on its own too.
      */
     'middleware' => [
         'global' => true,
+        'redirects' => true,
+        // robots.txt, the sitemaps, llms.txt and the IndexNow key, served
+        // past a catch-all route of the site's (`/{slug}`, an SPA's `/{any}`).
+        'seo_files' => true,
+        'not_found' => true,
+        'robots_header' => true,
+    ],
+
+    /* `xerads:prune` daily (old 404 paths, delivery records, expired cache). */
+    'prune' => [
+        'scheduled' => true,
     ],
 ];

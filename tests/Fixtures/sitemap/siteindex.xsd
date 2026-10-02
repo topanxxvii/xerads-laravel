@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A <sitemapindex> as the sitemaps.org protocol 0.9 defines it, written for
+  this package's tests so they validate offline: at least one and at most
+  50,000 <sitemap>, each with an absolute <loc> and, optionally, a W3C
+  <lastmod>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://www.sitemaps.org/schemas/sitemap/0.9"
+           xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+           elementFormDefault="qualified">
+
+  <xs:element name="sitemapindex">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="sitemap" minOccurs="1" maxOccurs="50000">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="loc" type="tLoc"/>
+              <xs:element name="lastmod" type="tLastmod" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:simpleType name="tLoc">
+    <xs:restriction base="xs:anyURI">
+      <xs:pattern value="https?://.+"/>
+      <xs:maxLength value="2048"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tLastmod">
+    <xs:union memberTypes="xs:date xs:dateTime"/>
+  </xs:simpleType>
+</xs:schema>

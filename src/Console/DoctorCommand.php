@@ -56,6 +56,14 @@ final class DoctorCommand extends Command
                 : "No static public/{$file}.");
         }
 
+        foreach ($diagnostics->shadowedRoutes() as $path => $shadowed) {
+            $name = ['robots' => '/robots.txt', 'sitemap' => '/sitemap.xml', 'indexnow_key' => 'the IndexNow key file'][$path];
+
+            $this->add($path.'_route', $shadowed ? 'warn' : 'ok', $shadowed
+                ? "A route of this site with parameters answers {$name} before the package's. Turn xerads.middleware.seo_files (and .global) back on, add XerAds\\Laravel\\Seo\\Http\\ServeSeoFiles to your own middleware, or keep the path out of that route."
+                : "{$name} reaches the package's route, or the site's own.");
+        }
+
         return $this->report();
     }
 

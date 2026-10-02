@@ -77,26 +77,40 @@ final class SyncServiceProvider extends ServiceProvider
      * XerAds at :00, :15, :30 and :45, sites sharing a host's address would
      * share its rate limit too. A sync killed mid-run blocks the next ones
      * for at most `MUTEX_MINUTES`, not the scheduler's default of a day.
+     *
+     * `xerads:prune` runs daily at 03:xx on the same scheduler, on its own
+     * switch (`xerads.prune.scheduled`): a site that runs the sync from its
+     * own cron still wants the 404 table kept small.
      */
     private function registerScheduler(): void
     {
         $config = $this->app->make('config');
+        $sync = (bool) $config->get('xerads.sync.scheduler', true);
+        $prune = (bool) $config->get('xerads.prune.scheduled', true);
 
-        if (! $config->get('xerads.sync.scheduler', true)) {
+        if (! $sync && ! $prune) {
             return;
         }
 
-        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($config) {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($config, $sync, $prune) {
             $minute = $this->spreadMinute();
 
-            $schedule->command('xerads:sync')
-                ->cron($this->expression($config->get('xerads.sync.schedule'), sprintf('%d,%d,%d,%d * * * *', $minute % 15, $minute % 15 + 15, $minute % 15 + 30, $minute % 15 + 45)))
-                ->withoutOverlapping(self::MUTEX_MINUTES);
+            if ($sync) {
+                $schedule->command('xerads:sync')
+                    ->cron($this->expression($config->get('xerads.sync.schedule'), sprintf('%d,%d,%d,%d * * * *', $minute % 15, $minute % 15 + 15, $minute % 15 + 30, $minute % 15 + 45)))
+                    ->withoutOverlapping(self::MUTEX_MINUTES);
 
-            // Seven minutes off: never on a refresh minute.
-            $schedule->command('xerads:sync --heartbeat')
-                ->cron($this->expression($config->get('xerads.sync.heartbeat_schedule'), sprintf('%d * * * *', ($minute + 7) % 60)))
-                ->withoutOverlapping(self::MUTEX_MINUTES);
+                // Seven minutes off: never on a refresh minute.
+                $schedule->command('xerads:sync --heartbeat')
+                    ->cron($this->expression($config->get('xerads.sync.heartbeat_schedule'), sprintf('%d * * * *', ($minute + 7) % 60)))
+                    ->withoutOverlapping(self::MUTEX_MINUTES);
+            }
+
+            if ($prune) {
+                $schedule->command('xerads:prune')
+                    ->cron(sprintf('%d 3 * * *', $minute))
+                    ->withoutOverlapping(self::MUTEX_MINUTES);
+            }
         });
     }
 

@@ -17,7 +17,9 @@ use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
 use XerAds\Laravel\Content\Models\Media;
 use XerAds\Laravel\Content\Receivers\MappedModel;
+use XerAds\Laravel\Seo\ContentVersion;
 use XerAds\Laravel\Seo\SeoMetaWriter;
+use XerAds\Laravel\Support\PackageQueue;
 
 /**
  * Copies an article's images to this site, then points the stored article at
@@ -52,27 +54,7 @@ final class MirrorArticleMedia implements ShouldQueue
      */
     public static function dispatchFor(string $xeradsId, Repository $config): void
     {
-        $pending = self::dispatch($xeradsId);
-        $connection = $config->get('xerads.queue.connection');
-        $queue = $config->get('xerads.queue.queue');
-
-        if (is_string($connection) && $connection !== '') {
-            $pending->onConnection($connection);
-        }
-
-        if (is_string($queue) && $queue !== '') {
-            $pending->onQueue($queue);
-        }
-
-        $connection = is_string($connection) && $connection !== '' ? $connection : $config->get('queue.default');
-        $driver = is_string($connection) ? $config->get("queue.connections.{$connection}.driver", $connection) : 'sync';
-
-        if ($driver === 'sync') {
-            $pending->afterResponse();
-        } else {
-            // Not before the article it reads is committed.
-            $pending->afterCommit();
-        }
+        PackageQueue::send(self::dispatch($xeradsId), $config);
     }
 
     public function handle(MediaMirror $mirror, MappedModel $mapped, ArticleBodies $bodies, SeoMetaWriter $seo): void
@@ -142,6 +124,9 @@ final class MirrorArticleMedia implements ShouldQueue
         if ($record instanceof Article) {
             $bodies->forget($record);
         }
+
+        // The sitemap lists the images; it shows the copies from now on.
+        app(ContentVersion::class)->bump();
 
         $this->pointSeoImageAtCopy($record, $seo, $replacements);
     }

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The image sitemap extension (namespace sitemap-image/1.1), written for this
+  package's tests: <image:image> with an absolute <image:loc>, and the older
+  optional elements search engines no longer read.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://www.google.com/schemas/sitemap-image/1.1"
+           xmlns="http://www.google.com/schemas/sitemap-image/1.1"
+           elementFormDefault="qualified">
+
+  <xs:element name="image">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="loc">
+          <xs:simpleType>
+            <xs:restriction base="xs:anyURI">
+              <xs:pattern value="https?://.+"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="caption" type="xs:string" minOccurs="0"/>
+        <xs:element name="geo_location" type="xs:string" minOccurs="0"/>
+        <xs:element name="title" type="xs:string" minOccurs="0"/>
+        <xs:element name="license" type="xs:anyURI" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

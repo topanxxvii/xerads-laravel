@@ -16,7 +16,7 @@ it('creates the core tables with their columns', function (string $table, array 
     ['xerads_content_map', ['xerads_id', 'target', 'model_type', 'model_id', 'remote_id', 'sequence', 'revision', 'state', 'last_delivery_id', 'last_url', 'created_at', 'updated_at']],
     ['xerads_seo_meta', ['seoable_type', 'seoable_id', 'title', 'description', 'focus_keyword', 'keywords', 'canonical_url', 'robots', 'og', 'twitter', 'schema', 'breadcrumbs', 'extras', 'source', 'locked_fields']],
     ['xerads_media', ['source_url_hash', 'source_url', 'disk', 'path', 'mime', 'width', 'height', 'bytes', 'alt']],
-    ['xerads_redirects', ['remote_id', 'origin', 'match', 'source', 'source_hash', 'case_insensitive', 'target', 'status', 'preserve_query', 'active', 'hits', 'last_hit_at']],
+    ['xerads_redirects', ['remote_id', 'origin', 'match', 'source', 'source_hash', 'case_insensitive', 'target', 'status', 'preserve_query', 'active']],
 ]);
 
 it('enforces one ledger row per delivery and one SEO row per model', function () {

@@ -7,6 +7,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Carbon;
 use Throwable;
 use XerAds\Laravel\Content\Models\ContentMapEntry;
+use XerAds\Laravel\Seo\NotFound\NotFoundReporter;
 use XerAds\Laravel\Support\CredentialsResolver;
 use XerAds\Laravel\Support\Diagnostics;
 use XerAds\Laravel\Support\ErrorScrubber;
@@ -40,6 +41,7 @@ final class HeartbeatReporter
         private readonly Tables $tables,
         private readonly Repository $config,
         private readonly Application $app,
+        private readonly NotFoundReporter $notFound,
     ) {}
 
     /**
@@ -86,6 +88,7 @@ final class HeartbeatReporter
     public function payload(): array
     {
         $checks = $this->diagnostics->pingChecks();
+        $shadowed = $this->diagnostics->shadowedRoutes();
 
         return [
             'plugin_version' => Version::VERSION,
@@ -103,6 +106,10 @@ final class HeartbeatReporter
                 // request, so it hides the package's own route.
                 'robots_static_file' => $checks['robots_static_file'],
                 'sitemap_static_file' => $checks['sitemap_static_file'],
+                // A catch-all route of the site's answers the path instead.
+                'robots_route_shadowed' => $shadowed['robots'],
+                'sitemap_route_shadowed' => $shadowed['sitemap'],
+                'indexnow_key_route_shadowed' => $shadowed['indexnow_key'],
                 'storage_link' => $checks['storage_link'],
                 'queue' => $checks['queue'],
                 'app_url_https' => $checks['app_url_https'],
@@ -111,6 +118,7 @@ final class HeartbeatReporter
             ],
             'counts' => $this->counts(),
             'last_error' => $this->scrubber->scrub($this->lastError()),
+            'indexnow' => $this->indexNow(),
         ];
     }
 
@@ -133,8 +141,36 @@ final class HeartbeatReporter
         return [
             'articles' => $articles,
             'redirects' => is_array($redirects) ? count($redirects) : 0,
-            // The 404 monitor arrives in a later release.
-            'not_found_open' => null,
+            'not_found_open' => $this->notFoundOpen(),
+        ];
+    }
+
+    private function notFoundOpen(): ?int
+    {
+        try {
+            return $this->notFound->openCount();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The last IndexNow submission, or null when there has been none.
+     *
+     * @return array{last_submitted_at: string|null, last_status: int|null, last_error: string|null}|null
+     */
+    private function indexNow(): ?array
+    {
+        $last = $this->state->get('indexnow_last');
+
+        if ($last === []) {
+            return null;
+        }
+
+        return [
+            'last_submitted_at' => is_string($last['last_submitted_at'] ?? null) ? $last['last_submitted_at'] : null,
+            'last_status' => is_int($last['last_status'] ?? null) ? $last['last_status'] : null,
+            'last_error' => is_string($last['last_error'] ?? null) ? $this->scrubber->scrub($last['last_error']) : null,
         ];
     }
 

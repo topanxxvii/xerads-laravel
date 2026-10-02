@@ -127,8 +127,6 @@ return new class extends Migration
             $table->unsignedSmallInteger('status')->default(301);
             $table->boolean('preserve_query')->default(true);
             $table->boolean('active')->default(true);
-            $table->unsignedBigInteger('hits')->default(0);
-            $table->timestamp('last_hit_at')->nullable();
             $table->timestamps();
 
             $table->index('source_hash', $prefix.'redirects_source_hash_index');

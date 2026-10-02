@@ -26,6 +26,8 @@ use XerAds\Laravel\Support\Concerns\UsesXeradsTables;
  * @property string|null $last_delivery_id
  * @property string|null $last_url
  * @property Carbon|null $first_published_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class ContentMapEntry extends Model
 {

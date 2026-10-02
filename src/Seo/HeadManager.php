@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use XerAds\Laravel\Seo\Breadcrumbs\BreadcrumbTrail;
 use XerAds\Laravel\Seo\Schema\Graph;
+use XerAds\Laravel\Support\UrlPath;
 
 /**
  * Decides the current page's head: title, description, canonical, robots,
@@ -407,8 +408,56 @@ final class HeadManager
         ]);
     }
 
+    /**
+     * Whether the settings let search engines index the page at this path:
+     * the layers the head applies that do not depend on the request
+     * (`robots.default`, the path rule, `pages[]`, the model's own noindex,
+     * `index_site` and the noindex groups). The sitemap asks this for every
+     * address it lists, so it never offers a page whose head says noindex.
+     *
+     * @param  array<string, bool>|null  $modelRobots  the page's own `robots` (index, follow)
+     */
+    public function indexes(string $path, string $kind = 'page', ?array $modelRobots = null): bool
+    {
+        $robots = $this->restrictedByModel($this->settingsRobots($path, $this->matchingPage($path)), $modelRobots);
+
+        return $robots->index && ! $this->forcedBySettings($kind, 1);
+    }
+
     /** @param  array<string, mixed>|null  $entry */
     private function decideRobots(string $path, string $kind, ?array $entry, int $number): RobotsDirectives
+    {
+        $robots = $this->settingsRobots($path, $entry);
+        $routeRobots = $this->route()?->getAction(self::ROUTE_ROBOTS);
+
+        if (is_string($routeRobots) || is_array($routeRobots)) {
+            $robots = $robots->with($routeRobots);
+        }
+
+        $robots = $this->restrictedByModel($robots, $this->subject?->robots);
+
+        foreach ($this->runtimeRobots as $directives) {
+            $robots = $robots->with($directives);
+        }
+
+        // Forced, whatever the layers above said.
+        if ($this->preview) {
+            return $robots->with('noindex, nofollow');
+        }
+
+        $forced = ($this->config->get('xerads.seo.noindex_non_production', true) && ! $this->isProduction())
+            || $kind === 'not_found'
+            || $this->forcedBySettings($kind, $number);
+
+        return $forced ? $robots->noindex() : $robots;
+    }
+
+    /**
+     * `robots.default`, then the path rule, then the `pages[]` entry.
+     *
+     * @param  array<string, mixed>|null  $entry
+     */
+    private function settingsRobots(string $path, ?array $entry): RobotsDirectives
     {
         $default = $this->settings->get('robots.default');
         $robots = RobotsDirectives::fromSettings(is_array($default) ? $default : []);
@@ -421,28 +470,24 @@ final class HeadManager
             $robots = $robots->with($entry['robots']);
         }
 
-        $routeRobots = $this->route()?->getAction(self::ROUTE_ROBOTS);
+        return $robots;
+    }
 
-        if (is_string($routeRobots) || is_array($routeRobots)) {
-            $robots = $robots->with($routeRobots);
-        }
+    /**
+     * The model may only restrict. Every XerAds article says `index: true`
+     * unless told otherwise, and that must not lift a noindex the settings or
+     * the route put on its path.
+     *
+     * @param  array<string, bool>|null  $modelRobots
+     */
+    private function restrictedByModel(RobotsDirectives $robots, ?array $modelRobots): RobotsDirectives
+    {
+        return $modelRobots === null ? $robots : $robots->with(array_filter($modelRobots, fn (bool $value) => $value === false));
+    }
 
-        // The model may only restrict. Every XerAds article says
-        // `index: true` unless told otherwise, and that must not lift a
-        // noindex the settings or the route put on its path.
-        if ($this->subject?->robots !== null) {
-            $robots = $robots->with(array_filter($this->subject->robots, fn (bool $value) => $value === false));
-        }
-
-        foreach ($this->runtimeRobots as $directives) {
-            $robots = $robots->with($directives);
-        }
-
-        // Forced, whatever the layers above said.
-        if ($this->preview) {
-            return $robots->with('noindex, nofollow');
-        }
-
+    /** `index_site: false`, the noindex group of this kind of page, and pages after the first of a list. */
+    private function forcedBySettings(string $kind, int $number): bool
+    {
         $noindexGroup = match ($kind) {
             'search' => 'search',
             'category' => 'categories',
@@ -450,13 +495,9 @@ final class HeadManager
             default => null,
         };
 
-        $forced = ($this->config->get('xerads.seo.noindex_non_production', true) && ! $this->isProduction())
-            || $this->settings->get('robots.index_site', true) === false
-            || $kind === 'not_found'
+        return $this->settings->get('robots.index_site', true) === false
             || ($noindexGroup !== null && $this->settings->get('robots.noindex.'.$noindexGroup) === true)
             || ($number > 1 && $this->settings->get('robots.noindex.paginated') === true);
-
-        return $forced ? $robots->noindex() : $robots;
     }
 
     /**
@@ -796,7 +837,7 @@ final class HeadManager
      */
     public static function normalizePath(string $path): string
     {
-        return '/'.trim(rawurldecode((string) parse_url($path, PHP_URL_PATH)), '/');
+        return '/'.trim(rawurldecode(UrlPath::of($path)), '/');
     }
 
     /** The current page's address: the site's own base, this path, and `page` from 2 on. */

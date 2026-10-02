@@ -5,14 +5,13 @@ namespace XerAds\Laravel\Content\Http;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 use XerAds\Laravel\Content\Models\Article;
 use XerAds\Laravel\Content\Models\Category;
 use XerAds\Laravel\Content\Models\Tag;
 use XerAds\Laravel\Seo\HeadManager;
-use XerAds\Laravel\Seo\Redirects\Redirect;
-use XerAds\Laravel\Support\Tables;
+use XerAds\Laravel\Seo\Redirects\RedirectMatcher;
 
 /**
  * The turnkey blog's public pages: the article list, category and tag
@@ -78,7 +77,7 @@ final class BlogController
         ]);
     }
 
-    public function show(Request $request, string $slug): View|RedirectResponse
+    public function show(Request $request, string $slug): View|Response
     {
         $article = Article::query()->published()->where('slug', $slug)->first();
 
@@ -145,29 +144,24 @@ final class BlogController
         return app(HeadManager::class);
     }
 
-    /** A 301 or 410 the redirect table holds for this address, else 404. */
-    private function notAnArticle(Request $request): RedirectResponse
+    /**
+     * No article here: a 404, which HandleRedirects turns into the redirect
+     * the table holds for this address (a renamed article's 301, a deleted
+     * one's 410). Where that middleware is not global, the same matcher is
+     * asked here, so the answer is the same either way.
+     */
+    private function notAnArticle(Request $request): Response
     {
-        $redirect = app(Tables::class)->exists('redirects') ? Redirect::forPath($request->path()) : null;
+        $matcher = app(RedirectMatcher::class);
 
-        if ($redirect === null) {
-            abort(404);
+        if (! $matcher->runsGlobally()) {
+            $answer = $matcher->answer($request);
+
+            if ($answer !== null) {
+                return $answer;
+            }
         }
 
-        $redirect->recordHit();
-
-        if ($redirect->isGone()) {
-            abort(410);
-        }
-
-        $target = (string) $redirect->target;
-        $target = preg_match('#^https?://#i', $target) === 1 ? $target : url($target);
-        $query = $request->getQueryString();
-
-        if ($redirect->preserve_query && $query !== null && $query !== '') {
-            $target .= (str_contains($target, '?') ? '&' : '?').$query;
-        }
-
-        return redirect()->to($target, in_array($redirect->status, [301, 302, 303, 307, 308], true) ? $redirect->status : 301);
+        abort(404);
     }
 }

@@ -40,7 +40,7 @@ it('pulls everything with --full and keeps it as data', function () {
         ->and($output)->toContain('Heartbeat sent; XerAds asked for: pull_settings, pull_redirects.')
         ->and($output)->toContain('Settings: updated.')
         ->and($output)->toContain('Redirects: updated.')
-        ->and($output)->toContain('404 reports arrive with the 404 monitor');
+        ->and($output)->toContain('No new 404s to report.');
 
     expect(remote()->get('settings'))->toMatchArray(['version' => 3, 'etag' => '"s3"', 'data' => settingsDocument()])
         ->and(remote()->get('redirects')['data'])->toBe(redirectsDocument())
@@ -190,11 +190,11 @@ it('says when the clock is off rather than blaming the key', function () {
     expect($code)->toBe(1)->and($output)->toContain('SITE_TIMESTAMP_SKEW');
 });
 
-it('says the 404 monitor arrives later', function () {
+it('reports nothing when no 404 was counted', function () {
     [$code, $output] = sync(['--report-404' => true]);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain('404 reports arrive with the 404 monitor in a later release')
+        ->and($output)->toContain('No new 404s to report.')
         ->and(apiRequests())->toBe(0);
 });
 

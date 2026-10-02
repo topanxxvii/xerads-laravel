@@ -24,15 +24,14 @@ Built so far:
 - widget rendering: placeholders become widget containers, and the loader is
   added to any page that needs it;
 - pairing and sync: `xerads:pair` connects the site, and its SEO settings and
-  redirects are kept current (stored as data for now);
+  redirects are kept current;
 - the turnkey blog: `/blog` with categories, tags and signed previews, its
   images copied onto the site's own disk;
 - on-page SEO: title, description, canonical, robots, Open Graph, `twitter:*`
   and verification tags and one JSON-LD graph per page, from the settings edited
-  in XerAds, with breadcrumbs and a table of contents.
-
-The sitemap, robots.txt and redirects built from those settings arrive in
-later releases.
+  in XerAds, with breadcrumbs and a table of contents;
+- technical SEO: sitemaps, robots.txt, llms.txt, IndexNow, the redirects
+  managed in XerAds and a 404 monitor that reports to the dashboard.
 
 ## Requirements
 
@@ -99,6 +98,7 @@ refresh stays off while the application's own test suite runs.
 ```bash
 php artisan xerads:sync          # refresh, if due
 php artisan xerads:sync --full   # everything, now
+php artisan xerads:sync --report-404   # only the 404 report
 php artisan xerads:status        # the connection at a glance (--json for scripts)
 ```
 
@@ -283,6 +283,138 @@ keep `?page=`, from page 2 on; elsewhere it is ignored. With Inertia
 installed, the head is shared as the `xerads` prop on every Inertia response;
 keep `@xeradsHead` in the root view for the first, crawlable load. Without a
 pairing, SEO runs on your config alone.
+
+## Technical SEO
+
+Everything here follows the settings edited in XerAds; the config file can
+turn each part off. The routes are registered after the application's own,
+and a path the application already serves (its own `/robots.txt`,
+`/sitemap.xml` or `/llms.txt`) keeps answering. A route of the application's
+with parameters (a `/{slug}` page route, an SPA's `/{any}` catch-all) does not
+hide them: the `ServeSeoFiles` middleware answers these paths with the
+package's routes first, and leaves them to the application where the package
+has nothing to serve. `xerads:doctor` warns about a static `public/robots.txt`
+or `public/sitemap.xml`, which the web server serves before Laravel sees the
+request, and about a catch-all that answers these paths while that middleware
+is off; the heartbeat reports the same.
+
+**Sitemaps.** `/sitemap.xml` is an index of `/sitemaps/{source}-{page}.xml`,
+with images (`image:image`) for featured images. The sources are the turnkey
+articles, the categories and tags that have a published article, the mapped
+model's published articles, the models in `xerads.sitemap.models` and the
+classes in `xerads.sitemap.sources` (implementing
+`XerAds\Laravel\Seo\Sitemap\Contracts\SitemapSource`). A sitemap's name
+(the key in `xerads.sitemap.models`, or the source's `name()`) is lowercase
+letters only and unique, because it becomes part of the address; any other
+name stops the sitemaps with an error saying which. A model lists the rows its
+`scopeXeradsSitemap()` keeps, at `xeradsSitemapUrl()`, which may use `url()`
+and `route()`: addresses are built on the site's own address while the
+sitemap is read, whatever Host the request came with:
+
+```php
+public function scopeXeradsSitemap(Builder $query): void
+{
+    $query->where('status', 'published');
+}
+
+public function xeradsSitemapUrl(): string
+{
+    return route('products.show', $this);
+}
+```
+
+A page whose head says noindex is left out, by the same decision: the
+settings' default, path rules, `pages[]` entries and noindex groups
+(categories, tags), and the page's own robots, which can only keep it out.
+So are pages whose canonical points elsewhere, that `sitemap.exclude_paths`
+covers, that are on another host, or whose address XML cannot carry (not
+UTF-8, or with control characters; logged). Image addresses are put on the
+site's own address and left out unless absolute. `include`, `max_urls` (per
+file) and `enabled` come from the settings; `lastmod` is when the content last
+changed. The files are cached until the content or the settings change (the
+site's own models: for `cache_ttl` seconds), never while answering another
+host, and built for every request while the cache is down. With nothing to
+list (`index_site: false`, or no content yet) `/sitemap.xml` answers 404: the
+protocol has no empty index. A request that fails while building answers
+`503` with `Retry-After: 60` rather than a partial file, which search engines
+would read as the missing pages being gone.
+
+**robots.txt** is written from the settings' rules and extra lines, with a
+`Sitemap:` line on the site's own address (none while `index_site` is false).
+Outside production it is
+`Disallow: /` for everyone, whatever the settings say (unless
+`xerads.seo.noindex_non_production` is off).
+
+**llms.txt** describes the site and lists its latest articles and its
+categories in Markdown, for language models. It is off until it is turned on
+in the settings (`llms_txt.enabled`); `xerads.llms_txt.enabled` overrides the
+settings either way.
+
+**IndexNow.** When an article is published, updated, unpublished or deleted,
+its address (and the old one, when it moved) is submitted to IndexNow, which
+shares it with the search engines that take part. With a queue worker the
+submission is a job delayed by `xerads.indexnow.debounce_seconds` (60), and
+every change in that window goes in the same submission; without one (the
+`sync` driver) it is sent after the response that made the change.
+Submissions happen only from the environments in
+`xerads.indexnow.environments` (production) and only for a site whose address
+is https. The key comes from the settings, else from pairing, and is served at
+`/{key}.txt`. The outcome of the last submission is reported in the
+heartbeat.
+
+**Redirects** from the XerAds dashboard are applied when the site itself
+answers 404 to a GET or HEAD request, so a redirect never hides a page that
+exists. The exact rule wins, then the longest prefix; a prefix rule sends
+everything under it to its target as it is. The query string is carried over
+unless the rule says not to, as the visitor sent it and before the target's
+`#fragment`. `410` and `451` answer through the application's exception
+handler, so visitors see the site's own error page (`errors/410.blade.php`,
+`errors/4xx.blade.php`, else the framework's) with that status. The turnkey
+blog's addresses follow the same rules. The site's own rules (origin `local`)
+win over XerAds' rules, which win over the package's automatic ones (written
+when a turnkey article changes its slug or is deleted). Rules are cached;
+saving or deleting a `Redirect` model is seen at once, and a write through the
+query builder must call `Redirect::changed()`. Each pull replaces XerAds'
+rules as a whole and leaves the others alone; a rule that would loop, with
+itself or with another rule, is left out and logged. Nothing is written to
+the database while redirecting.
+
+**404 monitor.** Paths that answer 404 to a GET or HEAD request are counted
+after the response has been sent: the path without its query string, the
+number of hits, when first and last seen and the host of the referring page.
+Never the visitor's IP address or user agent. What scanners probe for
+(`/wp-login.php`, `/.env`, `*.php`…), missing assets (images, scripts, fonts)
+and the paths in `xerads.monitor_404.ignore` are not counted; neither are more
+than `per_ip_per_minute` (30) 404s a minute from one visitor. New paths stop
+being added at `max_rows` (10,000). New hits are reported to XerAds in batches
+of up to 500 paths with each sync, where they can be redirected from the
+dashboard; a path that becomes the source of an exact redirect is closed.
+`monitor_404` in the settings turns counting or reporting off.
+
+**Pruning.** `xerads:prune` deletes 404 paths not seen for
+`monitor_404.retention_days` (30), delivery records past
+`webhook.delivery_retention_days` (7) and the package's expired entries in a
+database cache store. It runs daily at about 03:00 through the scheduler;
+`xerads.prune.scheduled` turns that off.
+
+**Middleware.** The redirects, the package's SEO files, the 404 monitor and
+the `X-Robots-Tag` header are global middleware, added through the HTTP
+kernel. To place them in your own stack instead, turn them off with
+`xerads.middleware.global` (all four) or `xerads.middleware.redirects`,
+`.seo_files`, `.not_found` and `.robots_header` (one each), and add the
+classes yourself:
+
+```php
+// bootstrap/app.php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->append([
+        \XerAds\Laravel\Seo\Http\ApplyRobotsHeader::class,
+        \XerAds\Laravel\Seo\Redirects\Http\HandleRedirects::class,
+        \XerAds\Laravel\Seo\Http\ServeSeoFiles::class,
+        \XerAds\Laravel\Seo\NotFound\Http\RecordNotFound::class,
+    ]);
+})
+```
 
 ## Widgets
 

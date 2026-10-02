@@ -29,14 +29,18 @@ use XerAds\Laravel\Support\StateStore;
  * name the site and key in force, and the first sync with another site's key
  * starts that site's state afresh (`adopt()`).
  *
- * Data only: SEO output and redirect handling read it in later releases.
+ * The SEO output reads the settings from here, RedirectSync the redirects,
+ * and the heartbeat the outcome of the last IndexNow submission.
  */
 final class RemoteState
 {
-    public const STATE_KEYS = ['site', 'settings', 'redirects', 'settings_version', 'redirects_version', 'heartbeat', 'sync', 'indexnow_key', 'site_status'];
+    public const STATE_KEYS = ['site', 'settings', 'redirects', 'redirects_applied', 'settings_version', 'redirects_version', 'heartbeat', 'sync', 'indexnow_key', 'indexnow_last', 'site_status'];
 
-    /** What another site's key starts afresh. */
-    public const SITE_SCOPED_KEYS = ['settings', 'redirects', 'settings_version', 'redirects_version', 'heartbeat', 'sync', 'site_status'];
+    /**
+     * What another site's key starts afresh. `redirects_applied` names its
+     * site, so it needs no reset.
+     */
+    public const SITE_SCOPED_KEYS = ['settings', 'redirects', 'settings_version', 'redirects_version', 'heartbeat', 'sync', 'site_status', 'indexnow_last'];
 
     public function __construct(
         private readonly StateStore $state,
