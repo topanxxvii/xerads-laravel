@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
@@ -19,9 +18,7 @@ use XerAds\Laravel\Sync\Client\PairingClientFactory;
 use XerAds\Laravel\Sync\RemoteState;
 use XerAds\Laravel\Tests\TestCase;
 
-pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
-    ->in('Unit', 'Feature');
+pest()->extend(TestCase::class)->in('Unit', 'Feature');
 
 /*
  * Test site keys. The secret is the one in the v2 signature vectors, so a key

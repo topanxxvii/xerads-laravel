@@ -13,10 +13,11 @@ jobs:
   # package ships no lock file, so each row resolves its own dependency set,
   # exactly as an application installing it would.
   framework:
-    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} (${{ matrix.stability }})
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} (${{ matrix.stability }}${{ matrix.experimental && ', experimental' || '' }})
     runs-on: ubuntu-latest
     # The Laravel 14 row runs against unreleased code and may break for
-    # reasons outside this package; it reports without failing the build.
+    # reasons outside this package; it reports without failing the build,
+    # and its name says it is experimental.
     continue-on-error: ${{ matrix.experimental }}
 
     strategy:
@@ -40,10 +41,13 @@ jobs:
 
           # The oldest dependency versions the constraints allow, on the
           # oldest PHP: what a long-lived application is most likely to have.
+          # Composer still skips versions with a known security advisory, so
+          # apart from the framework (allowed in a step below) each package
+          # gets its oldest version without one.
           - { php: '8.2', laravel: '11.*', testbench: '9.*', stability: prefer-lowest, experimental: false }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # curl: the pinning tests (PinnedRequestsTest) send real requests
       # through it to a local `php -S` server.
@@ -66,6 +70,15 @@ jobs:
         run: |
           composer remove --dev larastan/larastan inertiajs/inertia-laravel --no-update --no-interaction
           composer require --dev "pestphp/pest:*" --no-update --no-interaction
+
+      # Laravel 11 no longer gets security fixes, and every 11.x release is
+      # affected by advisories published since, so Composer (2.9 and later)
+      # refuses to install any of them. The package still supports Laravel
+      # 11, so its rows allow the framework's advisories, and only those,
+      # as an application staying on Laravel 11 has to.
+      - name: Allow Laravel 11 despite its unfixed advisories
+        if: matrix.laravel == '11.*'
+        run: composer config --no-interaction --json policy.advisories.ignore '["laravel/framework"]'
 
       - name: Install dependencies
         run: |
@@ -137,7 +150,7 @@ jobs:
       DB_PASSWORD: password
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:

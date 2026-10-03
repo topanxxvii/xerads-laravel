@@ -351,12 +351,15 @@ it('lists a mapped site\'s articles whatever Host the sitemap is asked on', func
 });
 
 it('leaves out, and warns about, addresses XML cannot carry', function () {
+    // Stored percent-encoded, since MySQL, MariaDB and PostgreSQL refuse text
+    // that is not UTF-8: the model decodes the slugs into its addresses, one
+    // with a control character, one that is not UTF-8.
     DB::table('posts')->insert([
         ['user_id' => 1, 'title' => 'Satu', 'slug' => 'satu', 'content' => '', 'status' => 'published', 'created_at' => now(), 'updated_at' => now()],
-        ['user_id' => 1, 'title' => 'Rusak', 'slug' => "rusak\x01", 'content' => '', 'status' => 'published', 'created_at' => now(), 'updated_at' => now()],
-        ['user_id' => 1, 'title' => 'Bukan UTF-8', 'slug' => "caf\xff", 'content' => '', 'status' => 'published', 'created_at' => now(), 'updated_at' => now()],
+        ['user_id' => 1, 'title' => 'Rusak', 'slug' => 'rusak%01', 'content' => '', 'status' => 'published', 'created_at' => now(), 'updated_at' => now()],
+        ['user_id' => 1, 'title' => 'Bukan UTF-8', 'slug' => 'caf%FF', 'content' => '', 'status' => 'published', 'created_at' => now(), 'updated_at' => now()],
     ]);
-    config(['xerads.sitemap.models' => ['pages' => SitemapPost::class]]);
+    config(['xerads.sitemap.models' => ['pages' => DecodedSlugSitemapPost::class]]);
     $warnings = $this->captureWarnings();
 
     expect(crawlSitemaps($this)['pages-1.xml'])->toBe(['http://localhost/halaman/satu'])
@@ -484,6 +487,15 @@ class SitemapPost extends Post
     public function xeradsSitemapUrl(): string
     {
         return '/halaman/'.$this->slug;
+    }
+}
+
+/** A model that decodes its stored slug into its address, whatever bytes that gives. */
+class DecodedSlugSitemapPost extends SitemapPost
+{
+    public function xeradsSitemapUrl(): string
+    {
+        return '/halaman/'.rawurldecode($this->slug);
     }
 }
 

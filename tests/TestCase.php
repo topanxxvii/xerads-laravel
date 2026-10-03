@@ -4,6 +4,9 @@ namespace XerAds\Laravel\Tests;
 
 use ArrayObject;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Database\Migrations\Migrator;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
@@ -22,9 +25,14 @@ use XerAds\Laravel\XeradsServiceProvider;
  *
  * The secret is the one pinned in the v1 golden fixture, so a test can replay
  * XerAds' exact request bytes and signature against the real route.
+ *
+ * Every test runs inside a transaction that is rolled back afterwards
+ * (RefreshDatabase), an application it rebuilds included.
  */
 abstract class TestCase extends Orchestra
 {
+    use RefreshDatabase;
+
     /**
      * Config applied before the providers boot, for the few tests that need
      * a differently booted app. Set it through `rebootWith()`.
@@ -88,7 +96,9 @@ abstract class TestCase extends Orchestra
     /**
      * Rebuild the application as a turnkey site: the mode is read when the
      * package boots (the blog's routes and migrations), as on a real site.
-     * The rebuilt app is migrated, the blog's tables included.
+     * The rebuilt app is migrated, the blog's tables included, and runs
+     * inside a transaction that is rolled back afterwards, so it may store
+     * rows.
      *
      * @param  array<string, mixed>  $config
      * @param  list<class-string>  $providers  booted after the package's, as a site's own are
@@ -98,17 +108,20 @@ abstract class TestCase extends Orchestra
         self::$bootConfig = ['xerads.content.mode' => 'turnkey'] + $config;
         self::$bootProviders = $providers;
 
-        $this->refreshApplication();
+        $this->replaceApplication([
+            __DIR__.'/../database/migrations/core',
+            __DIR__.'/../database/migrations/turnkey',
+            __DIR__.'/../workbench/database/migrations',
+        ]);
         $this->keepOffTheNetwork();
 
-        Artisan::call('migrate', [
-            '--path' => [
-                __DIR__.'/../database/migrations/core',
-                __DIR__.'/../database/migrations/turnkey',
-                __DIR__.'/../workbench/database/migrations',
-            ],
-            '--realpath' => true,
-        ]);
+        // On a database server the blog's tables were created outside any
+        // transaction, and would still be there for the next test, which
+        // expects a site without them. That test starts from a freshly
+        // migrated database instead, as RefreshDatabase arranges by itself
+        // after a test whose DDL committed its transaction. (SQLite in memory
+        // starts every test from an empty database anyway.)
+        RefreshDatabaseState::$migrated = false;
     }
 
     protected function tearDown(): void
@@ -129,8 +142,9 @@ abstract class TestCase extends Orchestra
      * Rebuild the application with this config set over the test defaults,
      * after the package registered and before it boots.
      *
-     * The rebuilt app gets a fresh in-memory database without the package
-     * tables, so use this only in tests that do not touch the database.
+     * The rebuilt app is not migrated: on SQLite in memory it gets a fresh
+     * database without the package tables, so use this only in tests that do
+     * not touch the database.
      *
      * @param  array<string, mixed>  $config
      */
@@ -138,7 +152,7 @@ abstract class TestCase extends Orchestra
     {
         self::$bootConfig = $config;
 
-        $this->refreshApplication();
+        $this->replaceApplication();
     }
 
     /**
@@ -163,17 +177,44 @@ abstract class TestCase extends Orchestra
         self::$bootConfig = $config;
         self::$bootAsInstall = true;
 
+        $this->replaceApplication([__DIR__.'/../database/migrations/core', __DIR__.'/../workbench/database/migrations']);
+    }
+
+    /**
+     * Build a new application in place of the current one, migrate these
+     * paths, and run the rest of the test inside a transaction on its
+     * connection, rolled back afterwards like the first app's.
+     *
+     * The new app opens a connection of its own: on SQLite in memory, to a
+     * new and empty database; on a database server, to the same test
+     * database, outside the transaction RefreshDatabase began on the old
+     * app's connection. Without one of its own, every row the test wrote
+     * through it (a 404 the package counted, say) would stay for the tests
+     * after it. It is RefreshDatabase's own, begun after migrating since
+     * MySQL and MariaDB commit DDL, so callbacks after a commit run as they do
+     * on the first app.
+     *
+     * The old app's transactions are rolled back first, which leaves the test
+     * no more of its rows than SQLite's new database would. Left open until
+     * the test ends, their locks would keep the new app's connection waiting,
+     * in the same process: for ever.
+     *
+     * @param  list<string>  $migrations
+     */
+    private function replaceApplication(array $migrations = []): void
+    {
+        foreach ($this->app->make('db')->getConnections() as $connection) {
+            $connection->rollBack(0);
+            $connection->disconnect();
+        }
+
         $this->refreshApplication();
 
-        Artisan::call('migrate', [
-            '--path' => [__DIR__.'/../database/migrations/core', __DIR__.'/../workbench/database/migrations'],
-            '--realpath' => true,
-        ]);
+        if ($migrations !== []) {
+            Artisan::call('migrate', ['--path' => $migrations, '--realpath' => true]);
+        }
 
-        $connection = $this->app->make('db')->connection();
-        $connection->beginTransaction();
-
-        $this->beforeApplicationDestroyed(fn () => $connection->rollBack());
+        $this->beginDatabaseTransaction();
     }
 
     /**
@@ -276,9 +317,26 @@ abstract class TestCase extends Orchestra
         }
     }
 
+    /**
+     * The workbench's tables (posts, notes), migrated with the package's
+     * whenever RefreshDatabase migrates: before every test on SQLite in
+     * memory, on a database server only when it starts from a fresh one.
+     *
+     * Not through Testbench's loadMigrationsFrom(): once the database has
+     * been migrated, it migrates that path before every test and rolls it
+     * back after, a confirmable command that asks first in a test switched to
+     * production, and that on MySQL and MariaDB commits the test's
+     * transaction.
+     */
     protected function defineDatabaseMigrations(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../workbench/database/migrations');
+        $path = __DIR__.'/../workbench/database/migrations';
+
+        $this->app->afterResolving('migrator', fn (Migrator $migrator) => $migrator->path($path));
+
+        if ($this->app->resolved('migrator')) {
+            $this->app->make('migrator')->path($path);
+        }
     }
 
     /** @param  Router  $router */

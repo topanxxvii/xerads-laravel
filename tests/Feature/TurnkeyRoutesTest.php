@@ -340,7 +340,9 @@ it('publishes its views and its migrations for the site to keep', function () {
 it('reports a ready receiver once the tables exist, and what is missing before', function () {
     expect(app(ContentReceiver::class)->validateConfiguration()->isValid())->toBeTrue();
 
-    $this->rebootWith(['xerads.content.mode' => 'turnkey']);
+    // A prefix nothing migrated: on a database server the rebuilt app still
+    // sees the blog's tables that beforeEach() created.
+    $this->rebootWith(['xerads.content.mode' => 'turnkey', 'xerads.database.table_prefix' => 'not_migrated_']);
 
     expect(app(ContentReceiver::class)->validateConfiguration()->problems[0] ?? '')->toContain('php artisan migrate');
 });

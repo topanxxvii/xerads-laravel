@@ -39,6 +39,13 @@ Contents: [Requirements](#requirements) ·
   each supported and tested. Laravel 14 is declared ahead of its release:
   until it ships, CI tests it against its development branch in a row that
   is allowed to fail.
+- Laravel 11 is still supported by the package, but no longer by Laravel:
+  its security fixes ended on March 12, 2026, and every 11.x release is
+  affected by security advisories published since. Composer 2.9 and later
+  refuse to install an affected framework version on `composer update`
+  unless the application allows it in its Composer config
+  (`policy.advisories`, or `audit` before Composer 2.10). Upgrading to
+  Laravel 12 or 13 is recommended.
 - MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+ or SQLite 3.35+.
 - A site served over https: XerAds pairs only with https sites.
 - For the full feature set, the Laravel scheduler running every minute and a
